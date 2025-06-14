@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clima e Marés</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --cor-principal: #5199FF; --cor-principal-hover: #3a86f8; }
+    body { font-family: 'Inter', sans-serif; background: linear-gradient(to right, #e0eafc, #cfdef3); margin: 0; padding: 20px; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+    .container { background-color: #ffffff; padding: 35px 45px; border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); width: 90%; max-width: 800px; box-sizing: border-box; }
+    h1 { color: #2d3748; text-align: center; margin-bottom: 25px; font-weight: 600; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 1px solid #e2e8f0; }
+    .tab-button { padding: 10px 20px; cursor: pointer; border: none; background: none; font-size: 1rem; font-weight: 500; color: #4a5568; border-bottom: 3px solid transparent; transition: all 0.2s; }
+    .tab-button.active { color: var(--cor-principal); border-bottom-color: var(--cor-principal); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.5s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    form { display: flex; flex-direction: column; gap: 18px; margin-bottom: 25px; }
+    .search-container { display: flex; gap: 10px; }
+    label { font-weight: 500; color: #4a5568; font-size: 0.95rem; }
+    input[type="text"], input[type="date"] { padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 1rem; color: #2d3748; flex-grow: 1; transition: border-color 0.3s, box-shadow 0.3s; }
+    input[type="text"]:focus, input[type="date"]:focus { border-color: var(--cor-principal); box-shadow: 0 0 0 3px rgba(81, 153, 255, 0.15); outline: none; }
+    button { padding: 14px 16px; background-color: var(--cor-principal); color: #ffffff; border: none; border-radius: 10px; font-size: 1rem; font-weight: 500; cursor: pointer; transition: all 0.3s ease-in-out; }
+    button:hover { background-color: var(--cor-principal-hover); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(81, 153, 255, 0.2); }
+    #map { height: 350px; width: 100%; border-radius: 10px; margin-top: 15px; z-index: 1; }
+    #resultado-clima, #resultado-mare { margin-top: 25px; padding: 25px; background-color: #f7fafc; border-radius: 10px; display: none; }
+    #resultado-clima.active, #resultado-mare.active { display: block; }
+    .clima-principal { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; }
+    .temperatura { font-size: 2.8rem; font-weight: 600; }
+    .clima-detalhes { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
+    .detalhe { padding: 15px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .detalhe-titulo { font-size: 0.85rem; color: #718096; margin-bottom: 5px; }
+    .detalhe-valor { font-size: 1.1rem; font-weight: 500; color: #2d3748; }
+    .loading, .error-message { text-align: center; padding: 20px; display: none; }
+    .error-message { color: #e53e3e; background-color: #fff5f5; border-radius: 8px; }
+    .loading.active, .error-message.active { display: block; }
+    #mare-resposta { white-space: pre-wrap; background: #eef2f7; padding: 15px; border-radius: 8px; color: #334155; font-size: 0.95rem; line-height: 1.6; }
+    @media (max-width: 600px) { .container { padding: 25px 20px; } .search-container { flex-direction: column; } .clima-principal { flex-direction: column; align-items: flex-start; gap: 15px; } .clima-detalhes { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Info Clima & Marés</h1>
+    <div class="tabs">
+      <button class="tab-button active" onclick="showTab('clima')">Clima</button>
+      <button class="tab-button" onclick="showTab('mare')">Marés</button>
+    </div>
+
+    <!-- Seção Clima -->
+    <div id="clima" class="tab-content active">
+      <form id="clima-form">
+        <div class="search-container">
+          <input type="text" id="cidade" name="cidade" placeholder="Digite o nome da cidade..." required>
+          <button type="submit">Buscar</button>
+        </div>
+      </form>
+      <p style="text-align:center; color:#4a5568; font-size:0.9rem;">Ou clique no mapa para ver o clima</p>
+      <div id="map"></div>
+      <div class="loading" id="loading-clima"><p>Carregando clima...</p></div>
+      <div class="error-message" id="error-clima"></div>
+      <div id="resultado-clima"></div>
+    </div>
+
+    <!-- Seção Marés -->
+    <div id="mare" class="tab-content">
+      <form id="mare-form">
+        <label for="porto">Porto:</label>
+        <input type="text" id="porto" name="porto" placeholder="Ex: Porto de Recife" required>
+        <label for="data">Data:</label>
+        <input type="date" id="data" name="data" required>
+        <label for="pergunta">Pergunta:</label>
+        <input type="text" id="pergunta" name="pergunta" placeholder="Ex: Qual o horário da maré alta?" required>
+        <button type="submit">Consultar Maré</button>
+      </form>
+      <div class="loading" id="loading-mare"><p>Analisando dados da maré...</p></div>
+      <div class="error-message" id="error-mare"></div>
+      <div id="resultado-mare">
+        <h2>Resposta da Análise</h2>
+        <pre id="mare-resposta"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    // --- LÓGICA GERAL E DE ABAS ---
+    function showTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(tabName).classList.add('active');
+      document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
+    }
+
+    // --- LÓGICA DA SEÇÃO DE CLIMA ---
+    const map = L.map("map").setView([-15.78, -47.92], 4);
+    let currentMarker = null;
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap" }).addTo(map);
+
+    const climaForm = document.getElementById('clima-form');
+    const resultadoClimaDiv = document.getElementById('resultado-clima');
+    const loadingClima = document.getElementById('loading-clima');
+    const errorClima = document.getElementById('error-clima');
+
+    const showLoadingClima = show => { loadingClima.classList.toggle('active', show); if (show) { errorClima.classList.remove('active'); resultadoClimaDiv.classList.remove('active'); }};
+    const showErrorClima = message => { errorClima.textContent = message; errorClima.classList.add('active'); showLoadingClima(false); };
+
+    async function fetchClima(url) {
+        showLoadingClima(true);
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.erro || 'Erro desconhecido');
+            exibirDadosClima(data);
+            atualizarMapa(data.latitude, data.longitude, data.cidade);
+        } catch (error) {
+            showErrorClima(error.message);
+        } finally {
+            showLoadingClima(false);
+        }
+    }
+
+    climaForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const cidade = document.getElementById('cidade').value.trim();
+        if (cidade) fetchClima(`/clima?cidade=${encodeURIComponent(cidade)}`);
+    });
+
+    map.on('click', (e) => fetchClima(`/clima?lat=${e.latlng.lat}&lon=${e.latlng.lng}`));
+
+    function exibirDadosClima(data) {
+        resultadoClimaDiv.innerHTML = `
+            <div class="clima-principal">
+                <div>
+                    <h2>${data.cidade}, ${data.pais} <img src="https://openweathermap.org/img/wn/${data.icone}@2x.png" alt="Ícone do clima" style="display:inline-block; vertical-align:middle; width:50px;"></h2>
+                    <p style="text-transform: capitalize;">${data.descricao}</p>
+                </div>
+                <div>
+                    <p class="temperatura">${Math.round(data.temperatura)}°C</p>
+                    <p>Sensação: ${Math.round(data.sensacao)}°C</p>
+                </div>
+            </div>
+            <div class="clima-detalhes">
+                <div class="detalhe"><div class="detalhe-titulo">Temp. Mín/Máx</div><div class="detalhe-valor">${Math.round(data.temp_min)}°C / ${Math.round(data.temp_max)}°C</div></div>
+                <div class="detalhe"><div class="detalhe-titulo">Umidade</div><div class="detalhe-valor">${data.umidade}%</div></div>
+                <div class="detalhe"><div class="detalhe-titulo">Vento</div><div class="detalhe-valor">${data.vento} m/s</div></div>
+                <div class="detalhe"><div class="detalhe-titulo">Pressão</div><div class="detalhe-valor">${data.pressao} hPa</div></div>
+                <div class="detalhe"><div class="detalhe-titulo">Nuvens</div><div class="detalhe-valor">${data.nuvens}%</div></div>
+                <div class="detalhe"><div class="detalhe-titulo">Visibilidade</div><div class="detalhe-valor">${(data.visibilidade / 1000).toFixed(1)} km</div></div>
+                <div class="detalhe"><div class="detalhe-titulo">Nível do Mar</div><div class="detalhe-valor">${data.nivel_mar} hPa</div></div>
+                <div class="detalhe"><div class="detalhe-titulo">Nascer do Sol</div><div class="detalhe-valor">${data.nascer_do_sol}</div></div>
+                <div class="detalhe"><div class="detalhe-titulo">Pôr do Sol</div><div class="detalhe-valor">${data.por_do_sol}</div></div>
+            </div>`;
+        resultadoClimaDiv.classList.add('active');
+        errorClima.classList.remove('active');
+    }
+
+    function atualizarMapa(lat, lon, nome) {
+        if (currentMarker) map.removeLayer(currentMarker);
+        currentMarker = L.marker([lat, lon]).addTo(map).bindPopup(`<b>${nome}</b>`).openPopup();
+        map.setView([lat, lon], 10);
+    }
+    
+    // --- LÓGICA DA SEÇÃO DE MARÉS ---
+    const mareForm = document.getElementById('mare-form');
+    const resultadoMareDiv = document.getElementById('resultado-mare');
+    const mareResposta = document.getElementById('mare-resposta');
+    const loadingMare = document.getElementById('loading-mare');
+    const errorMare = document.getElementById('error-mare');
+
+    const showLoadingMare = show => { loadingMare.classList.toggle('active', show); if (show) { errorMare.classList.remove('active'); resultadoMareDiv.classList.remove('active'); }};
+    const showErrorMare = message => { errorMare.textContent = message; errorMare.classList.add('active'); showLoadingMare(false); };
+
+    mareForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      showLoadingMare(true);
+      const formData = {
+        porto: document.getElementById('porto').value,
+        data: document.getElementById('data').value,
+        pergunta: document.getElementById('pergunta').value
+      };
+      try {
+        const response = await fetch('/mare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.erro || 'Ocorreu um erro no servidor');
+        mareResposta.textContent = data.resposta;
+        resultadoMareDiv.classList.add('active');
+        errorMare.classList.remove('active');
+      } catch (error) {
+        showErrorMare(error.message);
+      } finally {
+        showLoadingMare(false);
+      }
+    });
+
+    // --- INICIALIZAÇÃO ---
+    document.addEventListener('DOMContentLoaded', () => {
+        document.getElementById('data').valueAsDate = new Date();
+        fetchClima(`/clima?cidade=Recife`);
+    });
+  </script>
+</body>
+</html>
