@@ -1,5 +1,3 @@
 Flask
 requests
 gunicorn
-Flask-Talisman
-Flask-Limiter
