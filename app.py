@@ -5,10 +5,7 @@ import requests
 from flask import Flask, request, jsonify, render_template
 from datetime import datetime, timezone, timedelta
 import re
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 
-limiter = Limiter(get_remote_address, app=app, default_limits=["5 per second"])
 
 # --- Configuração Inicial ---
 app = Flask(__name__)
