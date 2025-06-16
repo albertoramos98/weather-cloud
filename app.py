@@ -542,191 +542,147 @@ def listar_portos():
 
 
 
-# --- SISTEMA DE ALERTAS DE ALAGAMENTO ---
 
-def analisar_risco_alagamento(dados_clima, dados_mare):
-    """Analisa risco de alagamento baseado em clima e marés"""
-    alertas = []
-    nivel_risco = "baixo"
-    
-    if not dados_clima or not dados_mare:
-        return {"nivel": "indeterminado", "alertas": ["Dados insuficientes para análise"]}
-    
-    # Critérios de análise
-    umidade = dados_clima.get('umidade', 0)
-    nuvens = dados_clima.get('nuvens', 0)
-    pressao = dados_clima.get('pressao', 1013)
-    vento = dados_clima.get('vento', 0)
-    
-    # Verificar se há marés altas significativas
-    mares_altas = dados_mare.get('mare_alta', [])
-    mare_mais_alta = max(mares_altas, key=lambda x: x.get('altura_m', 0)) if mares_altas else None
-    
-    # Análise de condições meteorológicas
-    condicoes_chuva = False
-    if umidade > 80 and nuvens > 70:
-        condicoes_chuva = True
-        alertas.append("Alta umidade e cobertura de nuvens indicam possibilidade de chuva")
-    
-    if pressao < 1000:
-        condicoes_chuva = True
-        alertas.append("Baixa pressão atmosférica pode indicar sistema de tempestade")
-    
-    if vento > 10:
-        alertas.append("Ventos fortes podem intensificar ondas e marés")
-    
-    # Análise de marés
-    mare_critica = False
-    if mare_mais_alta and mare_mais_alta.get('altura_m', 0) > 4.0:
-        mare_critica = True
-        alertas.append(f"Maré alta significativa prevista: {mare_mais_alta.get('altura_m')}m às {mare_mais_alta.get('hora')}")
-    
-    # Determinar nível de risco
-    if condicoes_chuva and mare_critica:
-        nivel_risco = "alto"
-        alertas.append("⚠️ RISCO ALTO: Combinação de condições meteorológicas adversas com maré alta")
-    elif condicoes_chuva or mare_critica:
-        nivel_risco = "moderado"
-        if condicoes_chuva:
-            alertas.append("⚠️ RISCO MODERADO: Condições meteorológicas podem causar alagamentos")
-        if mare_critica:
-            alertas.append("⚠️ RISCO MODERADO: Maré alta pode causar alagamentos costeiros")
-    
-    # Recomendações específicas
-    recomendacoes = []
-    if nivel_risco == "alto":
-        recomendacoes.extend([
-            "Evite áreas baixas e próximas ao mar",
-            "Monitore boletins meteorológicos constantemente",
-            "Tenha plano de evacuação preparado",
-            "Evite atividades marítimas"
-        ])
-    elif nivel_risco == "moderado":
-        recomendacoes.extend([
-            "Mantenha-se atento às condições meteorológicas",
-            "Evite áreas de risco conhecidas",
-            "Tenha cuidado em atividades próximas ao mar"
-        ])
-    else:
-        recomendacoes.append("Condições normais, mas mantenha sempre atenção às mudanças meteorológicas")
-    
-    return {
-        "nivel": nivel_risco,
-        "alertas": alertas,
-        "recomendacoes": recomendacoes,
-        "dados_analisados": {
-            "umidade": umidade,
-            "nuvens": nuvens,
-            "pressao": pressao,
-            "vento": vento,
-            "mare_mais_alta": mare_mais_alta
-        }
-    }
-
-def obter_previsao_estendida(lat, lon):
-    """Obtém previsão estendida para análise de risco"""
-    if not API_KEY:
-        return None
-    
+# --- ROTA PARA SERVIR BANCO DE DADOS ---
+@app.route('/banco_mareas.json')
+def servir_banco_mares():
+    """Servir arquivo JSON de marés"""
     try:
-        # Usar API de previsão de 5 dias
-        link = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={API_KEY}&lang=pt_br&units=metric"
-        resposta = requests.get(link)
-        resposta.raise_for_status()
-        dados = resposta.json()
-        
-        previsoes = []
-        for item in dados.get('list', [])[:8]:  # Próximas 24 horas (8 períodos de 3h)
-            previsao = {
-                'datetime': item.get('dt_txt'),
-                'temperatura': item['main']['temp'],
-                'umidade': item['main']['humidity'],
-                'pressao': item['main']['pressure'],
-                'nuvens': item['clouds']['all'],
-                'vento': item['wind']['speed'],
-                'descricao': item['weather'][0]['description'],
-                'chuva': item.get('rain', {}).get('3h', 0)  # Chuva em 3h
-            }
-            previsoes.append(previsao)
-        
-        return previsoes
-    except:
-        return None
+        return send_from_directory('.', 'banco_mareas.json')
+    except FileNotFoundError:
+        return jsonify({"erro": "Arquivo banco_mareas.json não encontrado"}), 404
 
-@app.route('/alertas_alagamento', methods=['GET'])
-def obter_alertas_alagamento():
-    """API para obter alertas de alagamento para uma localização"""
+# --- ROTAS ORIGINAIS (MANTIDAS) ---
+
+
+# --- Rota principal ---
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+# --- Rota da API de Clima (com maré) ---
+@app.route("/clima")
+def obter_clima():
+    if not API_KEY:
+        return jsonify({"erro": "Chave da API de clima não configurada"}), 500
+
     cidade = request.args.get("cidade")
     lat = request.args.get("lat")
     lon = request.args.get("lon")
-    
-    if not ((lat and lon) or cidade):
-        return jsonify({"erro": "Informe cidade ou coordenadas"}), 400
-    
+
+    if lat and lon:
+        link = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&lang=pt_br&units=metric"
+    elif cidade:
+        link = f"https://api.openweathermap.org/data/2.5/weather?q={cidade}&appid={API_KEY}&lang=pt_br&units=metric"
+    else:
+        return jsonify({"erro": "Informe o nome da cidade ou coordenadas"}), 400
+
     try:
-        # Obter dados climáticos atuais
-        if lat and lon:
-            link_clima = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&lang=pt_br&units=metric"
-        else:
-            link_clima = f"https://api.openweathermap.org/data/2.5/weather?q={cidade}&appid={API_KEY}&lang=pt_br&units=metric"
-        
-        resposta_clima = requests.get(link_clima)
-        resposta_clima.raise_for_status()
-        dados_clima = resposta_clima.json()
-        
-        if dados_clima.get("cod") != 200:
-            return jsonify({"erro": "Localização não encontrada"}), 404
-        
-        # Obter coordenadas
-        lat_local = dados_clima['coord']['lat']
-        lon_local = dados_clima['coord']['lon']
-        
-        # Encontrar porto mais próximo
-        dist, porto_id, nome_porto = porto_mais_proximo(lat_local, lon_local)
-        
-        dados_mare = None
-        if dist <= 50:  # Apenas se estiver próximo ao litoral
-            dados_mare_raw = obter_dados_mare_do_banco(porto_id)
-            if dados_mare_raw:
-                dados_mare = formatar_dados_mare_para_clima(dados_mare_raw)
-        
-        # Obter previsão estendida
-        previsao_estendida = obter_previsao_estendida(lat_local, lon_local)
-        
-        # Analisar risco
-        analise_risco = analisar_risco_alagamento(dados_clima, dados_mare)
-        
-        # Análise adicional com previsão estendida
-        if previsao_estendida:
-            chuva_total_24h = sum(p.get('chuva', 0) for p in previsao_estendida)
-            if chuva_total_24h > 20:  # Mais de 20mm em 24h
-                analise_risco['alertas'].append(f"Previsão de chuva significativa: {chuva_total_24h:.1f}mm nas próximas 24h")
-                if analise_risco['nivel'] == 'baixo':
-                    analise_risco['nivel'] = 'moderado'
-                elif analise_risco['nivel'] == 'moderado':
-                    analise_risco['nivel'] = 'alto'
-        
-        resultado = {
-            "localizacao": {
-                "cidade": dados_clima["name"],
-                "pais": dados_clima['sys']['country'],
-                "latitude": lat_local,
-                "longitude": lon_local
-            },
-            "eh_litoranea": dist <= 50,
-            "porto_proximo": {
-                "nome": nome_porto,
-                "distancia_km": round(dist, 1)
-            } if dist <= 50 else None,
-            "analise_risco": analise_risco,
-            "previsao_chuva_24h": sum(p.get('chuva', 0) for p in previsao_estendida) if previsao_estendida else None,
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        return jsonify(resultado)
-        
+        resposta = requests.get(link)
+        resposta.raise_for_status()
+        dados = resposta.json()
     except requests.exceptions.RequestException as e:
         return jsonify({"erro": f"Erro na requisição: {str(e)}"}), 500
-    except Exception as e:
-        return jsonify({"erro": f"Erro interno: {str(e)}"}), 500
+
+    if dados.get("cod") != 200:
+        return jsonify({"erro": "Cidade não encontrada"}), 404
+
+    timezone_offset = dados.get('timezone', 0)
+
+    try:
+        resultado = {
+            "cidade": dados["name"], "pais": dados['sys']['country'],
+            "descricao": dados['weather'][0]['description'], "icone": dados['weather'][0]['icon'],
+            "temperatura": dados['main']['temp'], "sensacao": dados['main']['feels_like'],
+            "temp_min": dados['main']['temp_min'], "temp_max": dados['main']['temp_max'],
+            "pressao": dados['main']['pressure'], "umidade": dados['main']['humidity'],
+            "nivel_mar": dados['main'].get('sea_level', 'N/A'), "visibilidade": dados.get('visibility', 'N/A'),
+            "vento": dados['wind']['speed'], "nuvens": dados['clouds']['all'],
+            "nascer_do_sol": converter_timestamp(dados['sys']['sunrise'], timezone_offset),
+            "por_do_sol": converter_timestamp(dados['sys']['sunset'], timezone_offset),
+            "latitude": dados['coord']['lat'], "longitude": dados['coord']['lon'],
+        }
+
+        lat = dados['coord']['lat']
+        lon = dados['coord']['lon']
+        dist, porto_id, nome_porto = porto_mais_proximo(lat, lon)
+
+        if dist <= 50:
+            print(f"🌊 Cidade litorânea encontrada! Porto: {nome_porto} (distância: {dist:.1f}km)")
+            dados_mare = obter_dados_mare_do_banco(porto_id)
+            if dados_mare:
+                resultado["mare"] = formatar_dados_mare_para_clima(dados_mare)
+                resultado["eh_litoranea"] = True
+                print(f"✅ Dados de maré adicionados para {nome_porto}")
+            else:
+                resultado["mare"] = None
+                resultado["eh_litoranea"] = True  # ainda litorânea, só que sem dados disponíveis
+                print(f"⚠️ Porto litorâneo mas sem dados de maré disponíveis")
+        else:
+            resultado["mare"] = None
+            resultado["eh_litoranea"] = False
+            print(f"🏔️ Cidade não litorânea (distância do porto mais próximo: {dist:.1f}km)")
+
+        # Forçar como litorânea para teste (remover depois)
+        # resultado["eh_litoranea"] = True
+
+        return jsonify(resultado)
+
+    except KeyError as e:
+        return jsonify({"erro": f"Erro ao processar os dados do clima: {e}"}), 500
+
+def converter_timestamp(timestamp, timezone_offset):
+    """Converte timestamp Unix para horário local"""
+    dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    dt_local = dt + timedelta(seconds=timezone_offset)
+    return dt_local.strftime('%H:%M')
+
+def porto_mais_proximo(lat, lon):
+    """Encontra o porto mais próximo das coordenadas"""
+    menor_distancia = float('inf')
+    porto_mais_proximo = None
+    
+    for nome, slug, porto_lat, porto_lon in PORTOS_DISPONIVEIS:
+        distancia = calcular_distancia(lat, lon, porto_lat, porto_lon)
+        if distancia < menor_distancia:
+            menor_distancia = distancia
+            porto_mais_proximo = (menor_distancia, slug, nome)
+    
+    return porto_mais_proximo
+
+def obter_dados_mare_do_banco(porto_id):
+    """Obtém dados de maré do banco para um porto específico"""
+    print(f"🔍 Buscando dados de maré para porto: {porto_id}")
+    
+    # Tentar diferentes variações do nome
+    variacoes = [
+        porto_id,
+        porto_id.lower(),
+        porto_id.replace("_", " "),
+        porto_id.replace("_", ""),
+        porto_id.split("_")[0] if "_" in porto_id else porto_id
+    ]
+    
+    data_hoje = datetime.now().strftime('%Y-%m-%d')
+    
+    for variacao in variacoes:
+        print(f"  Tentando variação: '{variacao}'")
+        
+        # Buscar dados para hoje
+        for item in DADOS_MARES:
+            local_item = item.get('local', '').lower()
+            if variacao.lower() in local_item:
+                print(f"  ✅ Encontrado: {item.get('local')} para {item.get('data')}")
+                return item
+    
+    # Se não encontrar, pegar qualquer dado disponível do primeiro porto
+    if DADOS_MARES:
+        print(f"  ⚠️ Usando dados do primeiro porto disponível: {DADOS_MARES[0].get('local')}")
+        return DADOS_MARES[0]
+    
+    print(f"  ❌ Nenhum dado encontrado")
+    return None
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
 
