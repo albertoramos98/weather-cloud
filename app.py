@@ -17,7 +17,6 @@ PORTOS_DISPONIVEIS = [
     ("Porto de Paranaguá", "paranagua", -25.31, -48.32),
     ("Porto de Salvador", "salvador", -12.97, -38.52),
 
-    # Adicionando os demais portos (exemplos, pode ajustar slugs e valores)
     
     # Alagoas
     ("Porto de Maceió", "maceio", -9.68, -35.73),
@@ -119,11 +118,10 @@ def carregar_dados_mares():
         print("Arquivo banco_mareas.json não encontrado!")
         return []
 
-# Dados de marés carregados globalmente
 DADOS_MARES = carregar_dados_mares()
 
 def calcular_distancia(lat1, lon1, lat2, lon2):
-    """Calcula a distância entre duas coordenadas usando a fórmula de Haversine"""
+    
     R = 6371  # Raio da Terra em km
     
     lat1_rad = math.radians(lat1)
@@ -140,7 +138,7 @@ def calcular_distancia(lat1, lon1, lat2, lon2):
     return R * c
 
 def encontrar_porto_mais_proximo(lat, lon):
-    """Encontra o porto mais próximo das coordenadas fornecidas"""
+
     menor_distancia = float('inf')
     porto_mais_proximo = None
     
@@ -153,17 +151,17 @@ def encontrar_porto_mais_proximo(lat, lon):
     return porto_mais_proximo
 
 def buscar_dados_mare_por_local(termo_busca):
-    """Busca dados de maré por nome do local"""
+    
     termo_busca_json = termo_busca.lower().replace(" ", "_").replace("ã", "a").replace("ç", "c")
     
-    # Buscar dados para hoje
+ 
     data_hoje = datetime.now().strftime('%Y-%m-%d')
     
     for item in DADOS_MARES:
         if termo_busca_json in item.get('local', '').lower() and item.get('data') == data_hoje:
             return item
 
-    # Se não encontrar dados para hoje, pegar os mais recentes
+
     datas_disponiveis = [item for item in DADOS_MARES if termo_busca_json in item.get('local', '').lower()]
     if datas_disponiveis:
         datas_disponiveis.sort(key=lambda x: x['data'], reverse=True)
@@ -176,14 +174,12 @@ def formatar_dados_mare_para_clima(dados_mare):
         return None
 
     mares = dados_mare['mares']
-    
-    # CORREÇÃO: Separar corretamente por altura (ignorar campo "tipo" que está invertido)
-    # Ordenar por altura para encontrar realmente as mais altas e baixas
+   
     mares_ordenados = sorted(mares, key=lambda x: x['altura_m'])
     
-    # Marés baixas = menores alturas
+  
     maresBaixas = mares_ordenados[:len(mares_ordenados)//2] if len(mares_ordenados) > 1 else [mares_ordenados[0]]
-    # Marés altas = maiores alturas  
+
     maresAltas = mares_ordenados[len(mares_ordenados)//2:] if len(mares_ordenados) > 1 else [mares_ordenados[0]]
 
     local_completo = dados_mare.get('local', '')
@@ -216,7 +212,6 @@ def formatar_dados_mare_para_clima(dados_mare):
 
     return resultado
 
-# --- NOVAS APIS PARA TÁBUA DE MARÉS ---
 
 @app.route('/tabua_mares')
 def tabua_mares():
@@ -231,10 +226,9 @@ def tabua_mares():
     if mes < 1 or mes > 12:
         return jsonify({"erro": "Mês deve estar entre 1 e 12"}), 400
     
-    # Mapear cidade para termo de busca no JSON
+    # cidade busca no JSON
     termo_busca = cidade.replace(" ", "_").replace("ã", "a").replace("ç", "c")
     
-    # Filtrar dados do mês específico
     dados_mes = []
     for item in DADOS_MARES:
         if termo_busca in item.get('local', '').lower():
@@ -245,7 +239,6 @@ def tabua_mares():
     if not dados_mes:
         return jsonify({"erro": f"Nenhum dado encontrado para {cidade} em {mes:02d}/{ano}"}), 404
     
-    # Processar dados por dia
     tabua = {}
     for item in dados_mes:
         dia = datetime.strptime(item['data'], '%Y-%m-%d').day
@@ -254,11 +247,10 @@ def tabua_mares():
         if not mares:
             continue
             
-        # Ordenar marés por altura para encontrar extremos REAIS
         mares_ordenados = sorted(mares, key=lambda x: x['altura_m'])
         
-        mare_mais_baixa = mares_ordenados[0]  # Menor altura
-        mare_mais_alta = mares_ordenados[-1]  # Maior altura
+        mare_mais_baixa = mares_ordenados[0]  
+        mare_mais_alta = mares_ordenados[-1]  
         
         tabua[dia] = {
             'dia': dia,
@@ -268,7 +260,6 @@ def tabua_mares():
             'todas_mares': mares
         }
     
-    # Converter para lista ordenada por dia
     tabua_lista = [tabua[dia] for dia in sorted(tabua.keys())]
     
     return jsonify({
@@ -289,13 +280,11 @@ def alertas_alagamento():
     if not cidade and (not lat or not lon):
         return jsonify({"erro": "Forneça cidade ou coordenadas (lat, lon)"}), 400
     
-    # Se forneceu coordenadas, encontrar porto mais próximo
     if lat and lon:
         porto_info = encontrar_porto_mais_proximo(lat, lon)
         if porto_info:
             cidade = porto_info[1]  # slug do porto
     
-    # Buscar dados meteorológicos
     try:
         if lat and lon:
             weather_url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric&lang=pt_br"
