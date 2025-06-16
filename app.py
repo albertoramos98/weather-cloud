@@ -291,20 +291,442 @@ def processar_pergunta_mare(dados_mare, porto_usuario, data_usuario, pergunta):
     baixas = [(m['hora'], m['altura_m']) for m in mares_data if m['tipo'] == 'baixa']
     pergunta = pergunta.lower()
 
-    if "horário" in pergunta and "maré alta" in pergunta:
-        return f"Horários de maré alta em {data_usuario}:\n" + "\n".join([f"- {h} com {a}m" for h, a in altas])
-    if "horário" in pergunta and "maré baixa" in pergunta:
-        return f"Horários de maré baixa em {data_usuario}:\n" + "\n".join([f"- {h} com {a}m" for h, a in baixas])
-    if "maré mais alta" in pergunta:
-        mais_alta = max(altas, key=lambda item: item[1])
-        return f"A maré mais alta em {data_usuario} será às {mais_alta[0]} com {mais_alta[1]}m."
-    if "maré mais baixa" in pergunta:
-        mais_baixa = min(baixas, key=lambda item: item[1])
-        return f"A maré mais baixa em {data_usuario} será às {mais_baixa[0]} com {mais_baixa[1]}m."
+    # Maré mais alta (variações)
+    if any(p in pergunta for p in [
+        "maré mais alta", "maior maré", "pico da maré alta", 
+        "qual a maré mais alta", "a que horas a maré estará mais alta",
+        "horário da maré mais alta"
+    ]):
+        mais_alta = max(altas, key=lambda item: item[1]) if altas else None
+        if mais_alta:
+            return f"A maré mais alta em {data_usuario} será às {mais_alta[0]} com {mais_alta[1]}m."
+        return "Não há registros de maré alta para este dia."
 
-    return "Não entendi sua pergunta. Tente: 'horário da maré alta/baixa' ou 'maré mais alta/baixa'."
+    # Maré mais baixa (variações)
+    if any(p in pergunta for p in [
+        "maré mais baixa", "menor maré", "pico da maré baixa", 
+        "qual a maré mais baixa", "a que horas a maré estará mais baixa",
+        "horário da maré mais baixa", "qual o horário que a maré está mais baixa", "qual o horário que a maré está mais baixa hoje", "qual horário que a maré está mais baixa"
+    ]):
+        mais_baixa = min(baixas, key=lambda item: item[1]) if baixas else None
+        if mais_baixa:
+            return f"A maré mais baixa em {data_usuario} no {porto_usuario} será às {mais_baixa[0]} com {mais_baixa[1]}m."
+        return "Não há registros de maré baixa para este dia."
+
+    # Horários de maré alta
+    if any(p in pergunta for p in [
+        "horário da maré alta", "que horas a maré vai estar alta", 
+        "quando maré alta", "quais os horários da maré alta"
+    ]):
+        return f"Horários de maré alta em {data_usuario}:\n" + "\n".join([f"- {h} com {a}m" for h, a in altas])
+
+    # Horários de maré baixa
+    if any(p in pergunta for p in [
+        "horário da maré baixa", "que horas a maré vai estar baixa", 
+        "quando maré baixa", "quais os horários da maré baixa"
+    ]):
+        return f"Horários de maré baixaem {data_usuario}:\n" + "\n".join([f"- {h} com {a}m" for h, a in baixas])
+
+    # Quantidade de marés
+    if any(p in pergunta for p in ["quantas marés", "quantas vezes", "quantas altas", "quantas baixas"]):
+        resposta = []
+        if "alta" in pergunta:
+            resposta.append(f"Quantidade de marés altas: {len(altas)}")
+        elif "baixa" in pergunta:
+            resposta.append(f"Quantidade de marés baixas: {len(baixas)}")
+        else:
+            resposta.append(f"Quantidade total de marés: {len(mares_data)} (Altas: {len(altas)}, Baixas: {len(baixas)})")
+        return "\n".join(resposta)
+
+    return ("Não entendi sua pergunta. Tente algo como:\n"
+            "- 'Horário da maré alta'\n"
+            "- 'Horário da maré baixa'\n"
+            "- 'Qual será a maré mais alta?'\n"
+            "- 'Quantas marés altas teremos?'")
+
 
 # --- Execução local ---
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)
   
+
+# --- NOVAS FUNCIONALIDADES PARA TÁBUA DE MARÉS ---
+
+def criar_mapeamento_portos():
+    """Cria mapeamento entre nomes dos portos no JSON e na lista PORTOS_DISPONIVEIS"""
+    mapeamento = {}
+    
+    # Mapeamento manual baseado na análise dos dados
+    mapeamentos_manuais = {
+        "sao luis": ["11   sao luis  ma 41 43"],
+        "alumar": ["12   terminal da alumar   ma 44 46"],
+        "ponta_madeira": ["13   terminal da ponta da madeira   ma 47 49"],
+        "itaqui": ["14   porto de itaqui   ma 50 52"],
+        "luis_correia": ["15   PORTO DE LUÍS CORREIA  PI 53 55"],
+        "pecem": ["16   terminal portuario do pecem   ce 56 58"],
+        "mucuripe": ["17   porto de mucuripe   ce 59 61"],
+        "fernando_noronha": ["18   arquipelago de fernando de noronha  bs 62 64"],
+        "areia_branca": ["19   porto de areia branca   termisa   rn 65 67"],
+        "macau": ["20   PORTO DE MACAU   RN   68 70"],
+        "guamare": ["21   PORTO DE GUAMARÉ   RN   71 73"],
+        "natal": ["22   porto de natal   capitania dos portos do rn   74 76"],
+        "cabedelo": ["23   porto de cabedelo   pb   77 79"],
+        "recife": ["24   PORTO DO RECIFE  PE   80 82"],
+        "suape": ["25   PORTO DE SUAPE  PE   83 85"],
+        "maceio": ["26   porto de maceio   al   86 88"],
+        "madre_de_deus": ["29   porto de madre de deus   ba   95 97"],
+        "aratu": ["30   porto de aratu   base naval   ba   98 100"],
+        "salvador": ["31   PORTO DE SALVADOR   BA   101 103"],
+        "ilheus_malhado": ["32   PORTO DE ILHÉUS   MALHADO   BA   104 106"],
+        "barra_riacho": ["33   TERMINAL DE BARRA DO RIACHO   ES   107 109"],
+        "tubarao": ["34   PORTO DE TUBARÃO   ES   110 112"],
+        "vitoria": ["35   PORTO DE VITÓRIA 113   115"],
+        "ilha_trindade": ["36   ILHA DA TRINDADE   116 118"],
+        "ponta_ubu": ["37   TERMINAL DA PONTA DO UBU   ES   119 121"],
+        "imbetiba": ["39   TERMINAL MARÍTIMO DE IMBETIBA   RJ   125 127"],
+        "ilha_fiscal": ["40   PORTO DO RIO DE JANEIRO   ILHA FISCAL   RJ   128 130"],
+        "itaguai": ["41   PORTO DE ITAGUAÍ   RJ   131 133"],
+        "forno": ["42   PORTO DO FORNO   RJ   134 136"],
+        "ilha_guaiba": ["43   TERMINAL DA ILHA GUAÍBA   RJ   137 139"],
+        "angra_reis": ["44   PORTO DE ANGRA DOS REIS   RJ   140 142"],
+        "santos": ["46   PORTO DE SANTOS    146 148"],
+        "ponta_felix": ["47   TERMINAL DA PONTA DO FELIX    149 151"],
+        "paranagua": ["48   PORTO DE PARANAGUÁ    152 154"],
+        "canal_sueste": ["49   BARRA DE PARANAGUÁ   CANAL SUESTE   155 157"],
+        "canal_galheta": ["50   BARRA DE PARANAGUÁ   CANAL GALHETA   158 160"],
+        "sao_francisco_sul": ["51   PORTO DE SÃO FRANCISCO DO SUL   161 163", "51   PORTO DE SÃO FRANCISCO DO SUL   161 163 0"],
+        "imbituba": ["54   PORTO DE IMBITUBA    170 172"],
+        "rio_grande_rs": ["55   PORTO DO RIO GRANDE    173 175"],
+        "igarape_grande_curua": ["2   igarape grande do curua 14 16"],
+        "barra_norte_arco_lamoso": ["1   barra norte   arco lamoso 11 13", "1   barra norte   arco lamoso 11 13 (1)"],
+        "porto_santana": ["3   porto de santana   cia docas de santana  ap 17 19"],
+        "ilha_guaras": ["4   ILHA DOS GUARÁS   PA 20 22"],
+        "salinopolis": ["5   FUNDEADOURO DE SALINÓPOLIS   PA 23  25"],
+        "mosqueiro": ["6   ILHA DO MOSQUEIRO 26   28"],
+        "belem": ["7   PORTO DE BELÉM   PA 29 31"],
+        "vila_conde": ["8   PORTO DE VILA DO CONDE   PA 32 34"],
+        "breves": ["9   ATRACADOURO DE BREVES   PA 35 37"]
+    }
+    
+    return mapeamentos_manuais
+
+def obter_portos_disponiveis():
+    """Retorna lista de portos disponíveis para seleção"""
+    portos = []
+    for nome, slug, lat, lon in PORTOS_DISPONIVEIS:
+        portos.append({
+            "nome": nome,
+            "slug": slug,
+            "latitude": lat,
+            "longitude": lon
+        })
+    return portos
+
+def obter_dados_mare_mensal(porto_slug, mes, ano=2025):
+    """Obtém dados de marés para um porto específico em um mês"""
+    dados_mare = carregar_dados_mare()
+    if not dados_mare:
+        return None
+    
+    mapeamento = criar_mapeamento_portos()
+    locais_json = mapeamento.get(porto_slug, [])
+    
+    if not locais_json:
+        return None
+    
+    # Filtrar dados do mês especificado
+    dados_mes = []
+    for item in dados_mare:
+        local_item = item.get('local', '').lower()
+        data_item = item.get('data', '')
+        
+        # Verificar se é o local correto
+        local_encontrado = False
+        for local_json in locais_json:
+            if local_json.lower() in local_item:
+                local_encontrado = True
+                break
+        
+        if local_encontrado and data_item:
+            try:
+                data_obj = datetime.strptime(data_item, '%Y-%m-%d')
+                if data_obj.year == ano and data_obj.month == mes:
+                    dados_mes.append(item)
+            except ValueError:
+                continue
+    
+    return dados_mes
+
+def processar_dados_tabua_mares(dados_mes):
+    """Processa dados mensais para criar tábua de marés"""
+    if not dados_mes:
+        return None
+    
+    tabua = []
+    
+    for item in dados_mes:
+        data = item.get('data', '')
+        mares = item.get('mares', [])
+        
+        if not mares:
+            continue
+            
+        # Separar marés altas e baixas
+        mares_altas = [m for m in mares if m.get('tipo') == 'alta']
+        mares_baixas = [m for m in mares if m.get('tipo') == 'baixa']
+        
+        # Encontrar a maré mais alta e mais baixa do dia
+        mare_mais_alta = max(mares_altas, key=lambda x: x.get('altura_m', 0)) if mares_altas else None
+        mare_mais_baixa = min(mares_baixas, key=lambda x: x.get('altura_m', float('inf'))) if mares_baixas else None
+        
+        dia_data = {
+            'data': data,
+            'dia': datetime.strptime(data, '%Y-%m-%d').day,
+            'mare_mais_alta': mare_mais_alta,
+            'mare_mais_baixa': mare_mais_baixa,
+            'todas_mares': mares
+        }
+        
+        tabua.append(dia_data)
+    
+    # Ordenar por data
+    tabua.sort(key=lambda x: x['data'])
+    
+    return tabua
+
+@app.route('/tabua_mares', methods=['GET'])
+def obter_tabua_mares():
+    """API para obter tábua de marés mensal"""
+    porto_slug = request.args.get('porto')
+    mes = request.args.get('mes', type=int)
+    ano = request.args.get('ano', default=2025, type=int)
+    
+    if not porto_slug or not mes:
+        return jsonify({"erro": "Parâmetros 'porto' e 'mes' são obrigatórios"}), 400
+    
+    if mes < 1 or mes > 12:
+        return jsonify({"erro": "Mês deve estar entre 1 e 12"}), 400
+    
+    # Obter dados do mês
+    dados_mes = obter_dados_mare_mensal(porto_slug, mes, ano)
+    if not dados_mes:
+        return jsonify({"erro": "Dados não encontrados para o porto e mês especificados"}), 404
+    
+    # Processar dados para tábua
+    tabua = processar_dados_tabua_mares(dados_mes)
+    if not tabua:
+        return jsonify({"erro": "Não foi possível processar os dados de marés"}), 500
+    
+    # Encontrar porto na lista
+    porto_info = None
+    for nome, slug, lat, lon in PORTOS_DISPONIVEIS:
+        if slug == porto_slug:
+            porto_info = {"nome": nome, "slug": slug, "latitude": lat, "longitude": lon}
+            break
+    
+    resultado = {
+        "porto": porto_info,
+        "mes": mes,
+        "ano": ano,
+        "total_dias": len(tabua),
+        "tabua": tabua
+    }
+    
+    return jsonify(resultado)
+
+@app.route('/PORTOS_DISPONIVEIS', methods=['GET'])
+def listar_portos():
+    """API para listar todos os portos disponíveis"""
+    portos = obter_portos_disponiveis()
+    return jsonify({"portos": portos})
+
+
+
+# --- SISTEMA DE ALERTAS DE ALAGAMENTO ---
+
+def analisar_risco_alagamento(dados_clima, dados_mare):
+    """Analisa risco de alagamento baseado em clima e marés"""
+    alertas = []
+    nivel_risco = "baixo"
+    
+    if not dados_clima or not dados_mare:
+        return {"nivel": "indeterminado", "alertas": ["Dados insuficientes para análise"]}
+    
+    # Critérios de análise
+    umidade = dados_clima.get('umidade', 0)
+    nuvens = dados_clima.get('nuvens', 0)
+    pressao = dados_clima.get('pressao', 1013)
+    vento = dados_clima.get('vento', 0)
+    
+    # Verificar se há marés altas significativas
+    mares_altas = dados_mare.get('mare_alta', [])
+    mare_mais_alta = max(mares_altas, key=lambda x: x.get('altura_m', 0)) if mares_altas else None
+    
+    # Análise de condições meteorológicas
+    condicoes_chuva = False
+    if umidade > 80 and nuvens > 70:
+        condicoes_chuva = True
+        alertas.append("Alta umidade e cobertura de nuvens indicam possibilidade de chuva")
+    
+    if pressao < 1000:
+        condicoes_chuva = True
+        alertas.append("Baixa pressão atmosférica pode indicar sistema de tempestade")
+    
+    if vento > 10:
+        alertas.append("Ventos fortes podem intensificar ondas e marés")
+    
+    # Análise de marés
+    mare_critica = False
+    if mare_mais_alta and mare_mais_alta.get('altura_m', 0) > 4.0:
+        mare_critica = True
+        alertas.append(f"Maré alta significativa prevista: {mare_mais_alta.get('altura_m')}m às {mare_mais_alta.get('hora')}")
+    
+    # Determinar nível de risco
+    if condicoes_chuva and mare_critica:
+        nivel_risco = "alto"
+        alertas.append("⚠️ RISCO ALTO: Combinação de condições meteorológicas adversas com maré alta")
+    elif condicoes_chuva or mare_critica:
+        nivel_risco = "moderado"
+        if condicoes_chuva:
+            alertas.append("⚠️ RISCO MODERADO: Condições meteorológicas podem causar alagamentos")
+        if mare_critica:
+            alertas.append("⚠️ RISCO MODERADO: Maré alta pode causar alagamentos costeiros")
+    
+    # Recomendações específicas
+    recomendacoes = []
+    if nivel_risco == "alto":
+        recomendacoes.extend([
+            "Evite áreas baixas e próximas ao mar",
+            "Monitore boletins meteorológicos constantemente",
+            "Tenha plano de evacuação preparado",
+            "Evite atividades marítimas"
+        ])
+    elif nivel_risco == "moderado":
+        recomendacoes.extend([
+            "Mantenha-se atento às condições meteorológicas",
+            "Evite áreas de risco conhecidas",
+            "Tenha cuidado em atividades próximas ao mar"
+        ])
+    else:
+        recomendacoes.append("Condições normais, mas mantenha sempre atenção às mudanças meteorológicas")
+    
+    return {
+        "nivel": nivel_risco,
+        "alertas": alertas,
+        "recomendacoes": recomendacoes,
+        "dados_analisados": {
+            "umidade": umidade,
+            "nuvens": nuvens,
+            "pressao": pressao,
+            "vento": vento,
+            "mare_mais_alta": mare_mais_alta
+        }
+    }
+
+def obter_previsao_estendida(lat, lon):
+    """Obtém previsão estendida para análise de risco"""
+    if not API_KEY:
+        return None
+    
+    try:
+        # Usar API de previsão de 5 dias
+        link = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={API_KEY}&lang=pt_br&units=metric"
+        resposta = requests.get(link)
+        resposta.raise_for_status()
+        dados = resposta.json()
+        
+        previsoes = []
+        for item in dados.get('list', [])[:8]:  # Próximas 24 horas (8 períodos de 3h)
+            previsao = {
+                'datetime': item.get('dt_txt'),
+                'temperatura': item['main']['temp'],
+                'umidade': item['main']['humidity'],
+                'pressao': item['main']['pressure'],
+                'nuvens': item['clouds']['all'],
+                'vento': item['wind']['speed'],
+                'descricao': item['weather'][0]['description'],
+                'chuva': item.get('rain', {}).get('3h', 0)  # Chuva em 3h
+            }
+            previsoes.append(previsao)
+        
+        return previsoes
+    except:
+        return None
+
+@app.route('/alertas_alagamento', methods=['GET'])
+def obter_alertas_alagamento():
+    """API para obter alertas de alagamento para uma localização"""
+    cidade = request.args.get("cidade")
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+    
+    if not ((lat and lon) or cidade):
+        return jsonify({"erro": "Informe cidade ou coordenadas"}), 400
+    
+    try:
+        # Obter dados climáticos atuais
+        if lat and lon:
+            link_clima = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&lang=pt_br&units=metric"
+        else:
+            link_clima = f"https://api.openweathermap.org/data/2.5/weather?q={cidade}&appid={API_KEY}&lang=pt_br&units=metric"
+        
+        resposta_clima = requests.get(link_clima)
+        resposta_clima.raise_for_status()
+        dados_clima = resposta_clima.json()
+        
+        if dados_clima.get("cod") != 200:
+            return jsonify({"erro": "Localização não encontrada"}), 404
+        
+        # Obter coordenadas
+        lat_local = dados_clima['coord']['lat']
+        lon_local = dados_clima['coord']['lon']
+        
+        # Encontrar porto mais próximo
+        dist, porto_id, nome_porto = porto_mais_proximo(lat_local, lon_local)
+        
+        dados_mare = None
+        if dist <= 50:  # Apenas se estiver próximo ao litoral
+            dados_mare_raw = obter_dados_mare_do_banco(porto_id)
+            if dados_mare_raw:
+                dados_mare = formatar_dados_mare_para_clima(dados_mare_raw)
+        
+        # Obter previsão estendida
+        previsao_estendida = obter_previsao_estendida(lat_local, lon_local)
+        
+        # Analisar risco
+        analise_risco = analisar_risco_alagamento(dados_clima, dados_mare)
+        
+        # Análise adicional com previsão estendida
+        if previsao_estendida:
+            chuva_total_24h = sum(p.get('chuva', 0) for p in previsao_estendida)
+            if chuva_total_24h > 20:  # Mais de 20mm em 24h
+                analise_risco['alertas'].append(f"Previsão de chuva significativa: {chuva_total_24h:.1f}mm nas próximas 24h")
+                if analise_risco['nivel'] == 'baixo':
+                    analise_risco['nivel'] = 'moderado'
+                elif analise_risco['nivel'] == 'moderado':
+                    analise_risco['nivel'] = 'alto'
+        
+        resultado = {
+            "localizacao": {
+                "cidade": dados_clima["name"],
+                "pais": dados_clima['sys']['country'],
+                "latitude": lat_local,
+                "longitude": lon_local
+            },
+            "eh_litoranea": dist <= 50,
+            "porto_proximo": {
+                "nome": nome_porto,
+                "distancia_km": round(dist, 1)
+            } if dist <= 50 else None,
+            "analise_risco": analise_risco,
+            "previsao_chuva_24h": sum(p.get('chuva', 0) for p in previsao_estendida) if previsao_estendida else None,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        return jsonify(resultado)
+        
+    except requests.exceptions.RequestException as e:
+        return jsonify({"erro": f"Erro na requisição: {str(e)}"}), 500
+    except Exception as e:
+        return jsonify({"erro": f"Erro interno: {str(e)}"}), 500
+

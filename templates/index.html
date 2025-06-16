@@ -40,7 +40,7 @@
 
     body { 
       font-family: 'Poppins', sans-serif; 
-      background: linear-gradient(135deg, #020c29 0%, #4063d8 100%);
+      background: linear-gradient(135deg, #061850 20%, #85daf5 100%);
       min-height: 100vh;
       color: var(--gray-800);
       line-height: 1.6;
@@ -473,6 +473,7 @@
       padding: 1.25rem;
       border-radius: 12px;
       margin-top: 1rem;
+     
     }
 
     .proxima-mare-title {
@@ -649,7 +650,7 @@
 <body>
   <div class="app-container">
     <div class="header">
-      <h1><i class="fas fa-cloud-sun"></i> Clima & Marés</h1>
+      <h1><img src="{{ url_for('static', filename='image 1 (1).png') }}" alt="Logo CliMar" style="margin-bottom: 5px;height: 45px; vertical-align: middle;"> CliMar</h1>
       <p>Informações meteorológicas e oceanográficas em tempo real</p>
     </div>
 
