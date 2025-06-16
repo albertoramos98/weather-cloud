@@ -710,40 +710,70 @@
 
         <!-- Seção Marés -->
         <div id="mare" class="tab-content">
-          <div class="form-container">
-            <form id="mare-form">
-              <div class="mare-form-container">
-                <div class="input-group">
-                  <label for="porto">Porto</label>
-                  <input type="text" id="porto" name="porto" placeholder="Ex: Porto de Recife" required>
-                </div>
-                <div class="input-group">
-                  <label for="data">Data</label>
-                  <input type="date" id="data" name="data" required>
-                </div>
-                <div class="input-group">
-                  <label for="pergunta">Pergunta</label>
-                  <input type="text" id="pergunta" name="pergunta" placeholder="Ex: Qual o horário da maré alta?" required>
-                </div>
-                <button type="submit" class="btn btn-ocean">
-                  <i class="fas fa-search"></i>
-                  Consultar
-                </button>
+          <div class="clima-layout">
+            <div class="clima-left">
+              <div class="form-container">
+                <form id="mare-form">
+                  <div class="input-group">
+                    <label for="cidade-mare">Cidade</label>
+                    <input type="text" id="cidade-mare" name="cidade" placeholder="Ex: Recife" required>
+                  </div>
+                  <div class="input-group">
+                    <label for="mes-mare">Mês</label>
+                    <select id="mes-mare" name="mes" required>
+                      <option value="">Selecione o mês</option>
+                      <option value="1">Janeiro</option>
+                      <option value="2">Fevereiro</option>
+                      <option value="3">Março</option>
+                      <option value="4">Abril</option>
+                      <option value="5">Maio</option>
+                      <option value="6">Junho</option>
+                      <option value="7">Julho</option>
+                      <option value="8">Agosto</option>
+                      <option value="9">Setembro</option>
+                      <option value="10">Outubro</option>
+                      <option value="11">Novembro</option>
+                      <option value="12">Dezembro</option>
+                    </select>
+                  </div>
+                  <button type="submit" class="btn btn-ocean">
+                    <i class="fas fa-chart-line"></i>
+                    Gerar Tábua
+                  </button>
+                </form>
               </div>
-            </form>
-          </div>
-
-          <div class="loading" id="loading-mare">
-            <div class="spinner"></div>
-            <p>Analisando dados da maré...</p>
-          </div>
-          <div class="error-message" id="error-mare"></div>
-          <div id="resultado-mare" style="display: none;">
-            <h2 style="margin-bottom: 1rem; color: var(--gray-800);">
-              <i class="fas fa-chart-line"></i>
-              Análise das Marés
-            </h2>
-            <div class="mare-response" id="mare-resposta"></div>
+              <div id="map-mare" style="height: 300px; margin-top: 1rem; border-radius: 8px;"></div>
+            </div>
+            
+            <div class="clima-right">
+              <div class="loading" id="loading-mare">
+                <div class="spinner"></div>
+                <p>Gerando tábua de marés...</p>
+              </div>
+              <div class="error-message" id="error-mare"></div>
+              
+              <!-- Alertas de Alagamento -->
+              <div id="alertas-alagamento" style="display: none; margin-bottom: 1rem;">
+                <div class="weather-card">
+                  <h3><i class="fas fa-exclamation-triangle"></i> Alerta de Alagamento</h3>
+                  <div id="alerta-conteudo"></div>
+                </div>
+              </div>
+              
+              <!-- Gráfico -->
+              <div id="resultado-mare" style="display: none;">
+                <div class="weather-card">
+                  <h3><i class="fas fa-chart-line"></i> Tábua de Marés</h3>
+                  <canvas id="grafico-mares" width="400" height="200"></canvas>
+                </div>
+                
+                <!-- Tabela -->
+                <div class="weather-card" style="margin-top: 1rem;">
+                  <h3><i class="fas fa-table"></i> Dados Detalhados</h3>
+                  <div id="tabela-mares" style="max-height: 300px; overflow-y: auto;"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -751,6 +781,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     // --- LÓGICA GERAL E DE ABAS ---
     function showTab(tabName) {
@@ -964,17 +995,22 @@
     }
     
     // --- LÓGICA DA SEÇÃO DE MARÉS ---
+    let mapMare = null;
+    let currentMarkerMare = null;
+    let currentChart = null;
+    
     const mareForm = document.getElementById('mare-form');
     const resultadoMareDiv = document.getElementById('resultado-mare');
-    const mareResposta = document.getElementById('mare-resposta');
     const loadingMare = document.getElementById('loading-mare');
     const errorMare = document.getElementById('error-mare');
+    const alertasDiv = document.getElementById('alertas-alagamento');
 
     const showLoadingMare = show => { 
       loadingMare.classList.toggle('active', show); 
       if (show) { 
         errorMare.classList.remove('active'); 
         resultadoMareDiv.style.display = 'none';
+        alertasDiv.style.display = 'none';
       }
     };
 
@@ -984,26 +1020,60 @@
       showLoadingMare(false); 
     };
 
+    // Inicializar mapa de marés
+    function initMapMare() {
+      if (!mapMare) {
+        mapMare = L.map("map-mare").setView([-15.78, -47.92], 4);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { 
+          attribution: "© OpenStreetMap",
+          maxZoom: 18
+        }).addTo(mapMare);
+        
+        mapMare.on('click', function(e) {
+          const { lat, lng } = e.latlng;
+          if (currentMarkerMare) mapMare.removeLayer(currentMarkerMare);
+          currentMarkerMare = L.marker([lat, lng]).addTo(mapMare);
+          
+          // Buscar cidade por coordenadas
+          fetch(`/clima?lat=${lat}&lon=${lng}`)
+            .then(response => response.json())
+            .then(data => {
+              if (data.cidade) {
+                document.getElementById('cidade-mare').value = data.cidade;
+              }
+            })
+            .catch(console.error);
+        });
+      }
+    }
+
     mareForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       showLoadingMare(true);
-      const formData = {
-        porto: document.getElementById('porto').value,
-        data: document.getElementById('data').value,
-        pergunta: document.getElementById('pergunta').value
-      };
+      
+      const cidade = document.getElementById('cidade-mare').value;
+      const mes = document.getElementById('mes-mare').value;
+      
       try {
-        const response = await fetch('/mare', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        });
+        // Buscar tábua de marés
+        const response = await fetch(`/tabua_mares?cidade=${encodeURIComponent(cidade)}&mes=${mes}`);
         const data = await response.json();
-        if (!response.ok) throw new Error(data.erro || 'Ocorreu um erro no servidor');
-        mareResposta.textContent = data.resposta;
+        
+        if (!response.ok) throw new Error(data.erro || 'Erro ao buscar dados');
+        
+        // Buscar alertas de alagamento
+        const alertaResponse = await fetch(`/alertas_alagamento?cidade=${encodeURIComponent(cidade)}`);
+        const alertaData = await alertaResponse.json();
+        
+        // Exibir resultados
+        exibirTabuaMares(data);
+        if (alertaResponse.ok) {
+          exibirAlertas(alertaData.analise_risco);
+        }
+        
         resultadoMareDiv.style.display = 'block';
-        resultadoMareDiv.classList.add('fade-in');
         errorMare.classList.remove('active');
+        
       } catch (error) {
         showErrorMare(error.message);
       } finally {
@@ -1011,10 +1081,117 @@
       }
     });
 
+    function exibirTabuaMares(data) {
+      // Preparar dados para o gráfico
+      const dias = data.tabua.map(item => item.dia);
+      const maresAltas = data.tabua.map(item => item.mare_mais_alta ? item.mare_mais_alta.altura_m : 0);
+      const maresBaixas = data.tabua.map(item => item.mare_mais_baixa ? item.mare_mais_baixa.altura_m : 0);
+      
+      // Destruir gráfico anterior se existir
+      if (currentChart) {
+        currentChart.destroy();
+      }
+      
+      // Criar novo gráfico
+      const ctx = document.getElementById('grafico-mares').getContext('2d');
+      currentChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dias,
+          datasets: [{
+            label: 'Maré Alta',
+            data: maresAltas,
+            borderColor: 'rgb(239, 68, 68)',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+            tension: 0.4
+          }, {
+            label: 'Maré Baixa',
+            data: maresBaixas,
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: {
+                display: true,
+                text: 'Altura (m)'
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Dia do Mês'
+              }
+            }
+          }
+        }
+      });
+      
+      // Criar tabela
+      let tabelaHTML = `
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: #f3f4f6;">
+              <th style="padding: 8px; border: 1px solid #ddd;">Dia</th>
+              <th style="padding: 8px; border: 1px solid #ddd;">Maré Alta</th>
+              <th style="padding: 8px; border: 1px solid #ddd;">Maré Baixa</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      data.tabua.forEach(item => {
+        const alta = item.mare_mais_alta;
+        const baixa = item.mare_mais_baixa;
+        tabelaHTML += `
+          <tr>
+            <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${item.dia}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">
+              ${alta ? `${alta.hora} - ${alta.altura_m}m` : 'N/A'}
+            </td>
+            <td style="padding: 8px; border: 1px solid #ddd;">
+              ${baixa ? `${baixa.hora} - ${baixa.altura_m}m` : 'N/A'}
+            </td>
+          </tr>
+        `;
+      });
+      
+      tabelaHTML += '</tbody></table>';
+      document.getElementById('tabela-mares').innerHTML = tabelaHTML;
+    }
+
+    function exibirAlertas(analise) {
+      const nivel = analise.nivel;
+      let cor = '#10b981'; // Verde
+      if (nivel === 'Moderado') cor = '#f59e0b'; // Amarelo
+      if (nivel === 'Alto') cor = '#ef4444'; // Vermelho
+      
+      const alertaHTML = `
+        <div style="padding: 1rem; border-left: 4px solid ${cor}; background: rgba(${nivel === 'Alto' ? '239,68,68' : nivel === 'Moderado' ? '245,158,11' : '16,185,129'}, 0.1);">
+          <h4 style="margin: 0 0 0.5rem 0; color: ${cor};">Risco: ${nivel}</h4>
+          <p style="margin: 0 0 0.5rem 0;">${analise.recomendacao}</p>
+          <small>Fatores: ${analise.fatores.join(', ')}</small>
+        </div>
+      `;
+      
+      document.getElementById('alerta-conteudo').innerHTML = alertaHTML;
+      alertasDiv.style.display = 'block';
+    }
+
     // --- INICIALIZAÇÃO ---
     document.addEventListener('DOMContentLoaded', () => {
-        document.getElementById('data').valueAsDate = new Date();
         fetchClima(`/clima?cidade=Recife`);
+        
+        // Inicializar mapa de marés quando a aba for clicada
+        document.querySelector('button[onclick="showTab(\'mare\')"]').addEventListener('click', () => {
+          setTimeout(initMapMare, 100);
+        });
     });
   </script>
 </body>
