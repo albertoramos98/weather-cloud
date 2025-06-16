@@ -69,77 +69,102 @@ PORTOS_DISPONIVEIS = [
     ("Barra de Paranaguá - Canal Sueste", "canal_sueste", -25.46, -48.16),
 
     # Pernambuco
-    ("Porto do Recife", "recife_pe", -34.52, -8.03),
-    ("Porto de Suape", "suape", -34.57, -8.23),
-    ("Arquipélago de Fernando de Noronha", "fernando_noronha", -32.4, -3.83),
-  
+    ("Porto do Recife", "recife_pe", -8.03, -34.52),
+    ("Porto de Suape", "suape", -8.42, -34.95),
 
     # Piauí
-    ("Porto de Luís Correia", "luis_correia", -2.85, -41.64),
+    ("Porto de Luís Correia", "luis_correia", -2.88, -41.67),
 
     # Rio de Janeiro
-    ("Porto do Rio de Janeiro - Ilha Fiscal", "ilha_fiscal", -22.9, -43.17),
-    ("Porto de Itaguaí", "itaguai", -22.93, -43.84),
-    ("Porto do Forno", "forno", -22.37, -42.01),
-    ("Terminal da Ilha Guaíba", "ilha_guaiba", -22.1, -44.03),
-    ("Porto de Angra dos Reis", "angra_reis", -23.01, -44.32),
-    ("Terminal Marítimo de Imbetiba", "imbetiba", -22.42, -41.44),
-    ("Porto do Açu", "acu", -21.81, -40.98),
+    ("Porto do Rio de Janeiro", "rio_janeiro", -22.9, -43.17),
+    ("Terminal da Ilha Guaíba", "ilha_guaiba", -22.85, -43.2),
+    ("Porto de Itaguaí", "itaguai", -22.85, -43.78),
+    ("Terminal de Angra dos Reis", "angra_reis", -23.01, -44.32),
+    ("Porto de Cabo Frio", "cabo_frio", -22.88, -42.02),
+    ("Barra de São João", "barra_sao_joao", -22.62, -41.95),
 
     # Rio Grande do Norte
-    ("Porto de Macau", "macau", -5.1, -36.67),
-    ("Porto de Guamaré", "guamare", -5.11, -36.32),
-    ("Porto de Natal - Capitania dos Portos do RN", "natal", -5.78, -35.21),
-    ("Porto de Areia Branca - Termisa", "areia_branca", -4.45, -37.04),
+    ("Porto de Natal", "natal", -5.78, -35.2),
+    ("Terminal Salineiro de Areia Branca", "areia_branca", -4.95, -37.13),
+    ("Porto de Macau", "macau", -5.12, -36.63),
+    ("Terminal Salineiro de Grossos", "grossos", -4.98, -37.15),
 
     # Rio Grande do Sul
-    ("Porto do Rio Grande", "rio_grande_rs", -32.14, -52.1),
+    ("Porto de Rio Grande", "rio_grande", -32.03, -52.1),
 
     # Santa Catarina
-    ("Porto de Imbituba", "imbituba", -28.23, -48.65),
-    ("Porto de São Francisco do Sul", "sao_francisco_sul", -26.25, -48.64),
+    ("Porto de Itajaí", "itajai", -26.9, -48.67),
+    ("Porto de São Francisco do Sul", "sao_francisco_sul", -26.24, -48.63),
+    ("Porto de Imbituba", "imbituba", -28.24, -48.67),
+    ("Terminal Portuário de Navegantes", "navegantes", -26.9, -48.65),
+
+    # São Paulo
+    ("Porto de Santos", "santos_sp", -23.96, -46.33),
+    ("Terminal de São Sebastião", "sao_sebastiao", -23.8, -45.4),
+
+    # Sergipe
+    ("Porto de Sergipe", "sergipe", -10.9, -37.05),
+    ("Terminal Marítimo Inácio Barbosa", "inacio_barbosa", -10.92, -37.05),
+
+    # Especial
+    ("Estação Antártica Comandante Ferraz", "antartica", -62.08, -58.4),
 ]
 
-# --- Utilitários
-def haversine(lon1, lat1, lon2, lat2):
-    R = 6371
-    lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = math.sin(dlat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
-    c = 2 * math.asin(math.sqrt(a))
+# Carregar dados de marés do JSON
+def carregar_dados_mares():
+    try:
+        with open('banco_mareas.json', 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print("Arquivo banco_mareas.json não encontrado!")
+        return []
+
+# Dados de marés carregados globalmente
+DADOS_MARES = carregar_dados_mares()
+
+def calcular_distancia(lat1, lon1, lat2, lon2):
+    """Calcula a distância entre duas coordenadas usando a fórmula de Haversine"""
+    R = 6371  # Raio da Terra em km
+    
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+    
+    dlat = lat2_rad - lat1_rad
+    dlon = lon2_rad - lon1_rad
+    
+    a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    
     return R * c
 
-def porto_mais_proximo(lat, lon):
-    distancias = []
-    for nome, identificador, plat, plon in PORTOS_DISPONIVEIS:
-        dist = haversine(lon, lat, plon, plat)
-        distancias.append((dist, identificador, nome))
-    return min(distancias, key=lambda x: x[0])
+def encontrar_porto_mais_proximo(lat, lon):
+    """Encontra o porto mais próximo das coordenadas fornecidas"""
+    menor_distancia = float('inf')
+    porto_mais_proximo = None
+    
+    for nome, slug, porto_lat, porto_lon in PORTOS_DISPONIVEIS:
+        distancia = calcular_distancia(lat, lon, porto_lat, porto_lon)
+        if distancia < menor_distancia:
+            menor_distancia = distancia
+            porto_mais_proximo = (nome, slug, porto_lat, porto_lon)
+    
+    return porto_mais_proximo
 
-def converter_timestamp(timestamp, offset_segundos):
-    dt = datetime.fromtimestamp(timestamp, tz=timezone.utc) + timedelta(seconds=offset_segundos)
-    return dt.strftime('%H:%M')
-
-def carregar_dados_mare(caminho_json='banco_mareas.json'):
-    try:
-        with open(caminho_json, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return None
-
-def obter_dados_mare_do_banco(porto_id_simplificado):
-    termo_busca_json = porto_id_simplificado.replace("_", " ")
-    dados_mare = carregar_dados_mare()
-    if not dados_mare:
-        return None
-
+def buscar_dados_mare_por_local(termo_busca):
+    """Busca dados de maré por nome do local"""
+    termo_busca_json = termo_busca.lower().replace(" ", "_").replace("ã", "a").replace("ç", "c")
+    
+    # Buscar dados para hoje
     data_hoje = datetime.now().strftime('%Y-%m-%d')
-    for item in dados_mare:
+    
+    for item in DADOS_MARES:
         if termo_busca_json in item.get('local', '').lower() and item.get('data') == data_hoje:
             return item
 
-    datas_disponiveis = [item for item in dados_mare if termo_busca_json in item.get('local', '').lower()]
+    # Se não encontrar dados para hoje, pegar os mais recentes
+    datas_disponiveis = [item for item in DADOS_MARES if termo_busca_json in item.get('local', '').lower()]
     if datas_disponiveis:
         datas_disponiveis.sort(key=lambda x: x['data'], reverse=True)
         return datas_disponiveis[0]
@@ -151,8 +176,15 @@ def formatar_dados_mare_para_clima(dados_mare):
         return None
 
     mares = dados_mare['mares']
-    altas = [m for m in mares if m['tipo'] == 'alta']
-    baixas = [m for m in mares if m['tipo'] == 'baixa']
+    
+    # CORREÇÃO: Separar corretamente por altura (ignorar campo "tipo" que está invertido)
+    # Ordenar por altura para encontrar realmente as mais altas e baixas
+    mares_ordenados = sorted(mares, key=lambda x: x['altura_m'])
+    
+    # Marés baixas = menores alturas
+    maresBaixas = mares_ordenados[:len(mares_ordenados)//2] if len(mares_ordenados) > 1 else [mares_ordenados[0]]
+    # Marés altas = maiores alturas  
+    maresAltas = mares_ordenados[len(mares_ordenados)//2:] if len(mares_ordenados) > 1 else [mares_ordenados[0]]
 
     local_completo = dados_mare.get('local', '')
     nome_porto = f"Porto de {local_completo.title()}"
@@ -160,11 +192,12 @@ def formatar_dados_mare_para_clima(dados_mare):
     resultado = {
         'local': nome_porto,
         'data': dados_mare.get('data', ''),
-        'mare_alta': altas,
-        'mare_baixa': baixas,
+        'mare_alta': maresAltas,
+        'mare_baixa': maresBaixas,
         'proxima_mare': None
     }
 
+    # Encontrar próxima maré
     agora = datetime.now().time()
     proximas_mares = []
 
@@ -182,6 +215,208 @@ def formatar_dados_mare_para_clima(dados_mare):
         resultado['proxima_mare'] = mares[0]
 
     return resultado
+
+# --- NOVAS APIS PARA TÁBUA DE MARÉS ---
+
+@app.route('/tabua_mares')
+def tabua_mares():
+    """API para gerar tábua de marés mensal"""
+    cidade = request.args.get('cidade', '').lower()
+    mes = request.args.get('mes', type=int)
+    ano = request.args.get('ano', 2025, type=int)
+    
+    if not cidade or not mes:
+        return jsonify({"erro": "Parâmetros cidade e mes são obrigatórios"}), 400
+    
+    if mes < 1 or mes > 12:
+        return jsonify({"erro": "Mês deve estar entre 1 e 12"}), 400
+    
+    # Mapear cidade para termo de busca no JSON
+    termo_busca = cidade.replace(" ", "_").replace("ã", "a").replace("ç", "c")
+    
+    # Filtrar dados do mês específico
+    dados_mes = []
+    for item in DADOS_MARES:
+        if termo_busca in item.get('local', '').lower():
+            data_item = datetime.strptime(item['data'], '%Y-%m-%d')
+            if data_item.year == ano and data_item.month == mes:
+                dados_mes.append(item)
+    
+    if not dados_mes:
+        return jsonify({"erro": f"Nenhum dado encontrado para {cidade} em {mes:02d}/{ano}"}), 404
+    
+    # Processar dados por dia
+    tabua = {}
+    for item in dados_mes:
+        dia = datetime.strptime(item['data'], '%Y-%m-%d').day
+        mares = item['mares']
+        
+        if not mares:
+            continue
+            
+        # Ordenar marés por altura para encontrar extremos REAIS
+        mares_ordenados = sorted(mares, key=lambda x: x['altura_m'])
+        
+        mare_mais_baixa = mares_ordenados[0]  # Menor altura
+        mare_mais_alta = mares_ordenados[-1]  # Maior altura
+        
+        tabua[dia] = {
+            'dia': dia,
+            'data': item['data'],
+            'mare_mais_baixa': mare_mais_baixa,
+            'mare_mais_alta': mare_mais_alta,
+            'todas_mares': mares
+        }
+    
+    # Converter para lista ordenada por dia
+    tabua_lista = [tabua[dia] for dia in sorted(tabua.keys())]
+    
+    return jsonify({
+        "cidade": cidade.title(),
+        "mes": mes,
+        "ano": ano,
+        "total_dias": len(tabua_lista),
+        "tabua": tabua_lista
+    })
+
+@app.route('/alertas_alagamento')
+def alertas_alagamento():
+    """API para análise de risco de alagamento"""
+    cidade = request.args.get('cidade')
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)
+    
+    if not cidade and (not lat or not lon):
+        return jsonify({"erro": "Forneça cidade ou coordenadas (lat, lon)"}), 400
+    
+    # Se forneceu coordenadas, encontrar porto mais próximo
+    if lat and lon:
+        porto_info = encontrar_porto_mais_proximo(lat, lon)
+        if porto_info:
+            cidade = porto_info[1]  # slug do porto
+    
+    # Buscar dados meteorológicos
+    try:
+        if lat and lon:
+            weather_url = f"http://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric&lang=pt_br"
+        else:
+            weather_url = f"http://api.openweathermap.org/data/2.5/weather?q={cidade}&appid={API_KEY}&units=metric&lang=pt_br"
+        
+        response = requests.get(weather_url)
+        if response.status_code != 200:
+            return jsonify({"erro": "Dados meteorológicos não disponíveis"}), 404
+            
+        dados_clima = response.json()
+        
+    except Exception as e:
+        return jsonify({"erro": f"Erro ao buscar dados meteorológicos: {str(e)}"}), 500
+    
+    # Buscar dados de marés
+    dados_mare = buscar_dados_mare_por_local(cidade)
+    
+    # Análise de risco
+    risco = analisar_risco_alagamento(dados_clima, dados_mare)
+    
+    return jsonify({
+        "cidade": cidade.title(),
+        "coordenadas": {"lat": lat, "lon": lon} if lat and lon else None,
+        "analise_risco": risco,
+        "dados_clima": {
+            "temperatura": dados_clima['main']['temp'],
+            "umidade": dados_clima['main']['humidity'],
+            "pressao": dados_clima['main']['pressure'],
+            "nuvens": dados_clima['clouds']['all'],
+            "descricao": dados_clima['weather'][0]['description']
+        },
+        "dados_mare": formatar_dados_mare_para_clima(dados_mare) if dados_mare else None
+    })
+
+def analisar_risco_alagamento(dados_clima, dados_mare):
+    """Analisa risco de alagamento baseado em dados meteorológicos e de marés"""
+    
+    # Extrair dados meteorológicos
+    umidade = dados_clima['main']['humidity']
+    pressao = dados_clima['main']['pressure']
+    nuvens = dados_clima['clouds']['all']
+    
+    # Verificar se há previsão de chuva
+    chuva = dados_clima.get('rain', {}).get('1h', 0)  # mm/h
+    
+    # Analisar marés
+    mare_alta_max = 0
+    if dados_mare and dados_mare.get('mares'):
+        alturas = [m['altura_m'] for m in dados_mare['mares']]
+        mare_alta_max = max(alturas)
+    
+    # Calcular pontuação de risco
+    pontos_risco = 0
+    fatores = []
+    
+    # Critérios meteorológicos
+    if umidade > 80:
+        pontos_risco += 2
+        fatores.append("Umidade alta (>80%)")
+    
+    if pressao < 1000:
+        pontos_risco += 2
+        fatores.append("Pressão baixa (<1000 hPa)")
+    
+    if nuvens > 70:
+        pontos_risco += 1
+        fatores.append("Muitas nuvens (>70%)")
+    
+    if chuva > 5:
+        pontos_risco += 3
+        fatores.append(f"Chuva intensa ({chuva:.1f}mm/h)")
+    elif chuva > 0:
+        pontos_risco += 1
+        fatores.append(f"Chuva leve ({chuva:.1f}mm/h)")
+    
+    # Critérios de maré
+    if mare_alta_max > 4.0:
+        pontos_risco += 3
+        fatores.append(f"Maré muito alta ({mare_alta_max:.1f}m)")
+    elif mare_alta_max > 3.0:
+        pontos_risco += 2
+        fatores.append(f"Maré alta ({mare_alta_max:.1f}m)")
+    elif mare_alta_max > 2.0:
+        pontos_risco += 1
+        fatores.append(f"Maré moderada ({mare_alta_max:.1f}m)")
+    
+    # Determinar nível de risco
+    if pontos_risco >= 6:
+        nivel = "Alto"
+        cor = "#ef4444"
+        recomendacao = "Evite áreas baixas e próximas ao mar. Monitore alertas oficiais."
+    elif pontos_risco >= 3:
+        nivel = "Moderado"
+        cor = "#f59e0b"
+        recomendacao = "Atenção redobrada em áreas costeiras. Evite deslocamentos desnecessários."
+    else:
+        nivel = "Baixo"
+        cor = "#10b981"
+        recomendacao = "Condições normais. Mantenha-se informado sobre mudanças climáticas."
+    
+    return {
+        "nivel": nivel,
+        "pontuacao": pontos_risco,
+        "cor": cor,
+        "fatores": fatores,
+        "recomendacao": recomendacao,
+        "mare_maxima": mare_alta_max
+    }
+
+# --- ROTA PARA SERVIR BANCO DE DADOS ---
+@app.route('/banco_mareas.json')
+def servir_banco_mares():
+    """Servir arquivo JSON de marés"""
+    try:
+        return send_from_directory('.', 'banco_mareas.json')
+    except FileNotFoundError:
+        return jsonify({"erro": "Arquivo banco_mareas.json não encontrado"}), 404
+
+# --- ROTAS ORIGINAIS (MANTIDAS) ---
+
 
 # --- Rota principal ---
 @app.route("/")
@@ -236,317 +471,81 @@ def obter_clima():
         dist, porto_id, nome_porto = porto_mais_proximo(lat, lon)
 
         if dist <= 50:
+            print(f"🌊 Cidade litorânea encontrada! Porto: {nome_porto} (distância: {dist:.1f}km)")
             dados_mare = obter_dados_mare_do_banco(porto_id)
             if dados_mare:
                 resultado["mare"] = formatar_dados_mare_para_clima(dados_mare)
                 resultado["eh_litoranea"] = True
+                print(f"✅ Dados de maré adicionados para {nome_porto}")
             else:
                 resultado["mare"] = None
                 resultado["eh_litoranea"] = True  # ainda litorânea, só que sem dados disponíveis
+                print(f"⚠️ Porto litorâneo mas sem dados de maré disponíveis")
         else:
             resultado["mare"] = None
             resultado["eh_litoranea"] = False
+            print(f"🏔️ Cidade não litorânea (distância do porto mais próximo: {dist:.1f}km)")
 
-        resultado["eh_litoranea"] = True
+        # Forçar como litorânea para teste (remover depois)
+        # resultado["eh_litoranea"] = True
 
         return jsonify(resultado)
 
     except KeyError as e:
         return jsonify({"erro": f"Erro ao processar os dados do clima: {e}"}), 500
 
-# --- Rota da API de Marés (pergunta direta) ---
-@app.route('/mare', methods=['POST'])
-def get_mare():
-    dados_requisicao = request.json
-    porto = dados_requisicao.get('porto')
-    data_str_iso = dados_requisicao.get('data')
-    pergunta = dados_requisicao.get('pergunta')
+def converter_timestamp(timestamp, timezone_offset):
+    """Converte timestamp Unix para horário local"""
+    dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    dt_local = dt + timedelta(seconds=timezone_offset)
+    return dt_local.strftime('%H:%M')
 
-    if not all([porto, data_str_iso, pergunta]):
-        return jsonify({"erro": "Campos 'porto', 'data' e 'pergunta' são obrigatórios."}), 400
-
-    dados_mare = carregar_dados_mare()
-    if dados_mare is None:
-        return jsonify({"erro": "Falha ao carregar o banco de dados das marés no servidor."}), 500
-
-    resposta = processar_pergunta_mare(dados_mare, porto, data_str_iso, pergunta)
-    return jsonify({"resposta": resposta})
-
-def processar_pergunta_mare(dados_mare, porto_usuario, data_usuario, pergunta):
-    porto_encontrado = None
-    for item in dados_mare:
-        if porto_usuario.strip().lower() in item.get('local', '').lower():
-            if item.get('data') == data_usuario:
-                porto_encontrado = item
-                break
-
-    if not porto_encontrado:
-        return f"Não foram encontrados dados para o porto '{porto_usuario}' na data '{data_usuario}'."
-
-    mares_data = porto_encontrado.get("mares", [])
-    if not mares_data:
-        return "Dados de maré para esta data estão indisponíveis ou incompletos."
-
-    altas = [(m['hora'], m['altura_m']) for m in mares_data if m['tipo'] == 'alta']
-    baixas = [(m['hora'], m['altura_m']) for m in mares_data if m['tipo'] == 'baixa']
-    pergunta = pergunta.lower()
-
-    # Maré mais alta (variações)
-    if any(p in pergunta for p in [
-        "maré mais alta", "maior maré", "pico da maré alta", 
-        "qual a maré mais alta", "a que horas a maré estará mais alta",
-        "horário da maré mais alta"
-    ]):
-        mais_alta = max(altas, key=lambda item: item[1]) if altas else None
-        if mais_alta:
-            return f"A maré mais alta em {data_usuario} será às {mais_alta[0]} com {mais_alta[1]}m."
-        return "Não há registros de maré alta para este dia."
-
-    # Maré mais baixa (variações)
-    if any(p in pergunta for p in [
-        "maré mais baixa", "menor maré", "pico da maré baixa", 
-        "qual a maré mais baixa", "a que horas a maré estará mais baixa",
-        "horário da maré mais baixa", "qual o horário que a maré está mais baixa", "qual o horário que a maré está mais baixa hoje", "qual horário que a maré está mais baixa"
-    ]):
-        mais_baixa = min(baixas, key=lambda item: item[1]) if baixas else None
-        if mais_baixa:
-            return f"A maré mais baixa em {data_usuario} no {porto_usuario} será às {mais_baixa[0]} com {mais_baixa[1]}m."
-        return "Não há registros de maré baixa para este dia."
-
-    # Horários de maré alta
-    if any(p in pergunta for p in [
-        "horário da maré alta", "que horas a maré vai estar alta", 
-        "quando maré alta", "quais os horários da maré alta"
-    ]):
-        return f"Horários de maré alta em {data_usuario}:\n" + "\n".join([f"- {h} com {a}m" for h, a in altas])
-
-    # Horários de maré baixa
-    if any(p in pergunta for p in [
-        "horário da maré baixa", "que horas a maré vai estar baixa", 
-        "quando maré baixa", "quais os horários da maré baixa"
-    ]):
-        return f"Horários de maré baixaem {data_usuario}:\n" + "\n".join([f"- {h} com {a}m" for h, a in baixas])
-
-    # Quantidade de marés
-    if any(p in pergunta for p in ["quantas marés", "quantas vezes", "quantas altas", "quantas baixas"]):
-        resposta = []
-        if "alta" in pergunta:
-            resposta.append(f"Quantidade de marés altas: {len(altas)}")
-        elif "baixa" in pergunta:
-            resposta.append(f"Quantidade de marés baixas: {len(baixas)}")
-        else:
-            resposta.append(f"Quantidade total de marés: {len(mares_data)} (Altas: {len(altas)}, Baixas: {len(baixas)})")
-        return "\n".join(resposta)
-
-    return ("Não entendi sua pergunta. Tente algo como:\n"
-            "- 'Horário da maré alta'\n"
-            "- 'Horário da maré baixa'\n"
-            "- 'Qual será a maré mais alta?'\n"
-            "- 'Quantas marés altas teremos?'")
-
-# --- NOVAS ROTAS ADICIONADAS ---
-
-@app.route('/banco_mareas.json')
-def servir_banco_mares():
-    """Servir arquivo JSON de marés"""
-    try:
-        return send_from_directory('.', 'banco_mareas.json')
-    except FileNotFoundError:
-        return jsonify({"erro": "Arquivo banco_mareas.json não encontrado"}), 404
-
-@app.route('/tabua_mares')
-def tabua_mares():
-    """API para gerar tábua de marés mensal"""
-    cidade = request.args.get('cidade')
-    mes = request.args.get('mes', type=int)
+def porto_mais_proximo(lat, lon):
+    """Encontra o porto mais próximo das coordenadas"""
+    menor_distancia = float('inf')
+    porto_mais_proximo = None
     
-    if not cidade or not mes:
-        return jsonify({"erro": "Forneça cidade e mês"}), 400
+    for nome, slug, porto_lat, porto_lon in PORTOS_DISPONIVEIS:
+        distancia = calcular_distancia(lat, lon, porto_lat, porto_lon)
+        if distancia < menor_distancia:
+            menor_distancia = distancia
+            porto_mais_proximo = (menor_distancia, slug, nome)
     
-    ano = 2025
-    dados_mare = carregar_dados_mare()
-    
-    if not dados_mare:
-        return jsonify({"erro": "Banco de dados não disponível"}), 500
-    
-    # Buscar dados para a cidade/mês - MELHORADA
-    cidade_normalizada = cidade.lower().strip()
-    dados_encontrados = []
-    
-    # Mapeamento de cidades para portos
-    mapeamento_cidades = {
-        'ipojuca': 'suape',
-        'porto de galinhas': 'suape',
-        'cabo de santo agostinho': 'suape',
-        'recife': 'recife',
-        'olinda': 'recife',
-        'jaboatao': 'recife',
-        'santos': 'santos',
-        'sao paulo': 'santos',
-        'salvador': 'salvador',
-        'sao luis': 'sao luis'
-    }
-    
-    # Tentar mapear cidade para porto conhecido
-    termo_busca = mapeamento_cidades.get(cidade_normalizada, cidade_normalizada)
-    
-    for item in dados_mare:
-        if not item.get('data') or not item.get('local'):
-            continue
-            
-        # Verificar mês/ano
-        try:
-            data_item = datetime.strptime(item['data'], '%Y-%m-%d')
-            if data_item.month != mes or data_item.year != ano:
-                continue
-        except:
-            continue
-        
-        # Verificar cidade - BUSCA MELHORADA
-        local_item = item.get('local', '').lower()
-        if (termo_busca in local_item or 
-            cidade_normalizada in local_item or
-            any(palavra in local_item for palavra in cidade_normalizada.split()) or
-            any(palavra in local_item for palavra in termo_busca.split())):
-            dados_encontrados.append(item)
-    
-    if not dados_encontrados:
-        return jsonify({"erro": f"Nenhum dado encontrado para {cidade} em {mes}/{ano}. Tente: Recife, Santos, Salvador, São Luís"}), 404
-    
-    # Processar dados por dia - CORRIGIDO
-    tabua = {}
-    
-    for item in dados_encontrados:
-        dia = datetime.strptime(item['data'], '%Y-%m-%d').day
-        mares = item.get('mares', [])
-        
-        if not mares:
-            continue
-            
-        # CORREÇÃO: Ordenar por altura real, não por tipo
-        mares_ordenados = sorted(mares, key=lambda x: x['altura_m'])
-        
-        # Maré mais baixa = menor altura
-        mare_mais_baixa = mares_ordenados[0]
-        # Maré mais alta = maior altura  
-        mare_mais_alta = mares_ordenados[-1]
-        
-        tabua[dia] = {
-            'dia': dia,
-            'data': item['data'],
-            'mare_mais_baixa': mare_mais_baixa,
-            'mare_mais_alta': mare_mais_alta
-        }
-    
-    # Converter para lista
-    tabua_lista = [tabua[dia] for dia in sorted(tabua.keys())]
-    
-    return jsonify({
-        "cidade": cidade.title(),
-        "mes": mes,
-        "ano": ano,
-        "total_dias": len(tabua_lista),
-        "tabua": tabua_lista
-    })
+    return porto_mais_proximo
 
-@app.route('/alertas_alagamento')
-def alertas_alagamento():
-    """API para alertas de alagamento"""
-    cidade = request.args.get('cidade')
-    lat = request.args.get('lat', type=float)
-    lon = request.args.get('lon', type=float)
+def obter_dados_mare_do_banco(porto_id):
+    """Obtém dados de maré do banco para um porto específico"""
+    print(f"🔍 Buscando dados de maré para porto: {porto_id}")
     
-    if not cidade and (not lat or not lon):
-        return jsonify({"erro": "Forneça cidade ou coordenadas"}), 400
+    # Tentar diferentes variações do nome
+    variacoes = [
+        porto_id,
+        porto_id.lower(),
+        porto_id.replace("_", " "),
+        porto_id.replace("_", ""),
+        porto_id.split("_")[0] if "_" in porto_id else porto_id
+    ]
     
-    try:
-        # Buscar dados meteorológicos
-        if lat and lon:
-            clima_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
-        else:
-            clima_url = f"https://api.openweathermap.org/data/2.5/weather?q={cidade}&appid={API_KEY}&units=metric"
+    data_hoje = datetime.now().strftime('%Y-%m-%d')
+    
+    for variacao in variacoes:
+        print(f"  Tentando variação: '{variacao}'")
         
-        resposta = requests.get(clima_url)
-        dados_clima = resposta.json()
-        
-        if dados_clima.get("cod") != 200:
-            return jsonify({"erro": "Dados meteorológicos não encontrados"}), 404
-        
-        # Dados do clima
-        umidade = dados_clima['main']['humidity']
-        pressao = dados_clima['main']['pressure']
-        nuvens = dados_clima['clouds']['all']
-        chuva = dados_clima.get('rain', {}).get('1h', 0)
-        
-        # Buscar dados de marés
-        lat_clima = dados_clima['coord']['lat']
-        lon_clima = dados_clima['coord']['lon']
-        dist, porto_id, nome_porto = porto_mais_proximo(lat_clima, lon_clima)
-        
-        mare_alta_max = 0
-        if dist <= 50:
-            dados_mare = obter_dados_mare_do_banco(porto_id)
-            if dados_mare and dados_mare.get('mares'):
-                alturas = [m['altura_m'] for m in dados_mare['mares']]
-                mare_alta_max = max(alturas) if alturas else 0
-        
-        # Calcular risco
-        pontos_risco = 0
-        fatores = []
-        
-        if umidade > 80:
-            pontos_risco += 2
-            fatores.append("Umidade alta")
-        
-        if pressao < 1000:
-            pontos_risco += 2
-            fatores.append("Pressão baixa")
-        
-        if nuvens > 70:
-            pontos_risco += 1
-            fatores.append("Muitas nuvens")
-        
-        if chuva > 5:
-            pontos_risco += 3
-            fatores.append("Chuva intensa")
-        elif chuva > 0:
-            pontos_risco += 1
-            fatores.append("Chuva leve")
-        
-        if mare_alta_max > 4.0:
-            pontos_risco += 3
-            fatores.append("Maré muito alta")
-        elif mare_alta_max > 3.0:
-            pontos_risco += 2
-            fatores.append("Maré alta")
-        elif mare_alta_max > 2.0:
-            pontos_risco += 1
-            fatores.append("Maré moderada")
-        
-        # Determinar nível
-        if pontos_risco >= 6:
-            nivel = "Alto"
-            recomendacao = "Evite áreas baixas e próximas ao mar. Monitore alertas oficiais."
-        elif pontos_risco >= 3:
-            nivel = "Moderado"
-            recomendacao = "Atenção redobrada em áreas costeiras. Evite deslocamentos desnecessários."
-        else:
-            nivel = "Baixo"
-            recomendacao = "Condições normais. Mantenha-se informado sobre mudanças climáticas."
-        
-        return jsonify({
-            "analise_risco": {
-                "nivel": nivel,
-                "pontos": pontos_risco,
-                "fatores": fatores,
-                "recomendacao": recomendacao,
-                "mare_alta_max": mare_alta_max
-            }
-        })
-        
-    except Exception as e:
-        return jsonify({"erro": f"Erro ao analisar risco: {str(e)}"}), 500
+        # Buscar dados para hoje
+        for item in DADOS_MARES:
+            local_item = item.get('local', '').lower()
+            if variacao.lower() in local_item:
+                print(f"  ✅ Encontrado: {item.get('local')} para {item.get('data')}")
+                return item
+    
+    # Se não encontrar, pegar qualquer dado disponível do primeiro porto
+    if DADOS_MARES:
+        print(f"  ⚠️ Usando dados do primeiro porto disponível: {DADOS_MARES[0].get('local')}")
+        return DADOS_MARES[0]
+    
+    print(f"  ❌ Nenhum dado encontrado")
+    return None
 
-# --- Execução local ---
 if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
+
