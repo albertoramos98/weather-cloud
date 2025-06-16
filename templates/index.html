@@ -3,82 +3,749 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clima e Marés</title>
+  <title>Clima & Marés</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    :root { --cor-principal: #5199FF; --cor-principal-hover: #3a86f8; }
-    body { font-family: 'Inter', sans-serif; background: linear-gradient(to right, #e0eafc, #cfdef3); margin: 0; padding: 20px; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
-    .container { background-color: #ffffff; padding: 35px 45px; border-radius: 16px; box-shadow: 0 6px 20px rgba(0,0,0,0.08); width: 90%; max-width: 800px; box-sizing: border-box; }
-    h1 { color: #2d3748; text-align: center; margin-bottom: 25px; font-weight: 600; }
-    .tabs { display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 1px solid #e2e8f0; }
-    .tab-button { padding: 10px 20px; cursor: pointer; border: none; background: none; font-size: 1rem; font-weight: 500; color: #4a5568; border-bottom: 3px solid transparent; transition: all 0.2s; }
-    .tab-button.active { color: var(--cor-principal); border-bottom-color: var(--cor-principal); }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; animation: fadeIn 0.5s; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    form { display: flex; flex-direction: column; gap: 18px; margin-bottom: 25px; }
-    .search-container { display: flex; gap: 10px; }
-    label { font-weight: 500; color: #4a5568; font-size: 0.95rem; }
-    input[type="text"], input[type="date"] { padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 1rem; color: #2d3748; flex-grow: 1; transition: border-color 0.3s, box-shadow 0.3s; }
-    input[type="text"]:focus, input[type="date"]:focus { border-color: var(--cor-principal); box-shadow: 0 0 0 3px rgba(81, 153, 255, 0.15); outline: none; }
-    button { padding: 14px 16px; background-color: var(--cor-principal); color: #ffffff; border: none; border-radius: 10px; font-size: 1rem; font-weight: 500; cursor: pointer; transition: all 0.3s ease-in-out; }
-    button:hover { background-color: var(--cor-principal-hover); transform: translateY(-2px); box-shadow: 0 4px 10px rgba(81, 153, 255, 0.2); }
-    #map { height: 350px; width: 100%; border-radius: 10px; margin-top: 15px; z-index: 1; }
-    #resultado-clima, #resultado-mare { margin-top: 25px; padding: 25px; background-color: #f7fafc; border-radius: 10px; display: none; }
-    #resultado-clima.active, #resultado-mare.active { display: block; }
-    .clima-principal { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 15px; }
-    .temperatura { font-size: 2.8rem; font-weight: 600; }
-    .clima-detalhes { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
-    .detalhe { padding: 15px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .detalhe-titulo { font-size: 0.85rem; color: #718096; margin-bottom: 5px; }
-    .detalhe-valor { font-size: 1.1rem; font-weight: 500; color: #2d3748; }
-    .loading, .error-message { text-align: center; padding: 20px; display: none; }
-    .error-message { color: #e53e3e; background-color: #fff5f5; border-radius: 8px; }
-    .loading.active, .error-message.active { display: block; }
-    #mare-resposta { white-space: pre-wrap; background: #eef2f7; padding: 15px; border-radius: 8px; color: #334155; font-size: 0.95rem; line-height: 1.6; }
-    @media (max-width: 600px) { .container { padding: 25px 20px; } .search-container { flex-direction: column; } .clima-principal { flex-direction: column; align-items: flex-start; gap: 15px; } .clima-detalhes { grid-template-columns: 1fr 1fr; } }
+    :root { 
+      --primary: #145faa;
+      --primary-dark: #145faa;
+      --secondary: #764ba2;
+      --accent: #f093fb;
+      --ocean: #00d4ff;
+      --ocean-dark: #00b8e6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --dark: #1a202c;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-600: #4b5563;
+      --gray-700: #374151;
+      --gray-800: #1f2937;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body { 
+      font-family: 'Poppins', sans-serif; 
+      background: linear-gradient(135deg, #061850 20%, #85daf5 100%);
+      min-height: 100vh;
+      color: var(--gray-800);
+      line-height: 1.6;
+    }
+
+    .app-container {
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+      color: white;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .header p {
+      font-size: 1.1rem;
+      opacity: 0.9;
+      font-weight: 300;
+    }
+
+    .main-content {
+      max-width: 160vh;
+      margin: 0 auto;
+      background: white;
+      border-radius: 24px;
+      box-shadow: var(--shadow-xl);
+      overflow: hidden;
+    }
+
+    .tabs-container {
+      background: var(--gray-50);
+      padding: 1rem;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      max-width: 400px;
+      margin: 0 auto;
+      background: white;
+      padding: 0.25rem;
+      border-radius: 12px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .tab-button {
+      flex: 1;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      background: transparent;
+      color: var(--gray-600);
+      font-weight: 500;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .tab-button.active {
+     background: linear-gradient(135deg,  #112361 9%);
+      color: white;
+      box-shadow: var(--shadow);
+    }
+
+    .tab-button:hover:not(.active) {
+      background: var(--gray-100);
+      color: var(--gray-700);
+    }
+
+    .content-wrapper {
+      padding: 2rem;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: fadeInUp 0.4s ease;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Layout Desktop Horizontal */
+    @media (min-width: 1024px) {
+      .clima-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+        min-height: 70vh;
+      }
+
+      .clima-left {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      .clima-right {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      #map {
+        height: 100% !important;
+        min-height: 500px;
+      }
+
+      .resultado-clima-desktop {
+        height: 100%;
+        overflow-y: auto;
+        padding-right: 0.5rem;
+      }
+
+      .resultado-clima-desktop::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .resultado-clima-desktop::-webkit-scrollbar-track {
+        background: var(--gray-100);
+        border-radius: 3px;
+      }
+
+      .resultado-clima-desktop::-webkit-scrollbar-thumb {
+        background: var(--gray-300);
+        border-radius: 3px;
+      }
+
+      .resultado-clima-desktop::-webkit-scrollbar-thumb:hover {
+        background: var(--gray-600);
+      }
+    }
+
+    /* Formulários */
+    .form-container {
+      background: var(--gray-50);
+      padding: 1.5rem;
+      border-radius: 16px;
+      border: 1px solid var(--gray-200);
+    }
+
+    .search-container {
+      display: flex;
+      gap: 0.75rem;
+      align-items: end;
+    }
+
+    .input-group {
+      flex: 1;
+    }
+
+    label {
+      display: block;
+      font-weight: 500;
+      color: var(--gray-700);
+      margin-bottom: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    input[type="text"], input[type="date"] {
+      width: 100%;
+      padding: 0.875rem 1rem;
+      border: 2px solid var(--gray-200);
+      border-radius: 12px;
+      font-size: 1rem;
+      transition: all 0.2s ease;
+      background: white;
+    }
+
+    input[type="text"]:focus, input[type="date"]:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .btn {
+      padding: 0.875rem 1.5rem;
+      border: none;
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-decoration: none;
+      font-size: 0.95rem;
+    }
+
+    .btn-primary {
+      background: rgb(223, 227, 234);
+      color: rgb(34, 20, 77);
+      box-shadow: var(--shadow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .btn-ocean {
+      background: linear-gradient(135deg, var(--ocean), var(--ocean-dark));
+      color: white;
+      box-shadow: var(--shadow);
+    }
+
+    .btn-ocean:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* Mapa */
+    .map-container {
+      background: var(--gray-50);
+      border-radius: 16px;
+      padding: 1rem;
+      border: 1px solid var(--gray-200);
+    }
+
+    .map-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+      color: var(--gray-700);
+      font-weight: 500;
+    }
+
+    #map {
+      height: 350px;
+      width: 100%;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    /* Resultados do Clima */
+    .clima-card {
+      background: white;
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--gray-200);
+    }
+
+    .clima-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .clima-location {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .clima-location h2 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--gray-800);
+    }
+
+    .clima-description {
+      color: var(--gray-600);
+      text-transform: capitalize;
+      font-weight: 400;
+    }
+
+    .temperatura-principal {
+      text-align: right;
+    }
+
+    .temperatura {
+      font-size: 3rem;
+      font-weight: 700;
+      color: var(--primary);
+      line-height: 1;
+    }
+
+    .sensacao {
+      color: var(--gray-600);
+      font-size: 0.9rem;
+    }
+
+    .clima-detalhes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+    }
+
+    .detalhe {
+      background: var(--gray-50);
+      padding: 1rem;
+      border-radius: 12px;
+      text-align: center;
+      border: 1px solid var(--gray-200);
+      transition: all 0.2s ease;
+    }
+
+    .detalhe:hover {
+      background: white;
+      box-shadow: var(--shadow);
+    }
+
+    .detalhe-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+      color: var(--primary);
+    }
+
+    .detalhe-titulo {
+      font-size: 0.8rem;
+      color: var(--gray-600);
+      margin-bottom: 0.25rem;
+      font-weight: 500;
+    }
+
+    .detalhe-valor {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--gray-800);
+    }
+
+    /* Seção de Marés */
+    .mare-section {
+      background: white;
+      border-radius: 16px;
+      padding: 1.5rem;
+     
+    }
+
+    .mare-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 1.2rem;
+    }
+
+    .mare-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .mare-card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+
+    .mare-card-title {
+      font-weight: 600;
+      color: var(--primary-dark);
+      margin-bottom: 1rem;
+      text-align: center;
+      font-size: 0.95rem;
+    }
+
+    .mare-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem;
+      margin: 0.5rem 0;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+
+
+    .mare-item:hover {
+      background: var(--gray-50);
+    }
+
+    .mare-alta {
+      border-left: 4px solid var(--success);  
+      background: linear-gradient(90deg, rgba(16, 185, 129, 0.1), transparent);
+    }
+
+    .mare-baixa {
+      border-left: 4px solid var(--warning);
+      background: linear-gradient(90deg, rgba(245, 158, 11, 0.1), transparent);
+    }
+
+    .mare-hora {
+      font-weight: 600;
+      color: var(--gray-800);
+    }
+
+    .mare-altura {
+      color: var(--gray-600);
+      font-weight: 500;
+    }
+
+    .proxima-mare {
+      background: var(--primary-dark);
+      color: white;
+      text-align: center;
+      padding: 1.25rem;
+      border-radius: 12px;
+      margin-top: 1rem;
+     
+    }
+
+    .proxima-mare-title {
+      font-size: 0.9rem;
+      opacity: 0.9;
+      margin-bottom: 0.5rem;
+    }
+
+    .proxima-mare-info {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    /* Estados de Loading e Erro */
+    .loading, .error-message {
+      text-align: center;
+      padding: 2rem;
+      border-radius: 12px;
+      display: none;
+    }
+
+    .loading {
+      background: var(--gray-50);
+      color: var(--gray-600);
+    }
+
+    .loading.active {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid var(--gray-200);
+      border-top: 4px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error-message {
+      background: #fef2f2;
+      color: var(--danger);
+      border: 1px solid #fecaca;
+    }
+
+    .error-message.active {
+      display: block;
+    }
+
+    /* Responsividade */
+    @media (max-width: 1023px) {
+      .clima-layout {
+        display: block;
+      }
+
+      .clima-left, .clima-right {
+        margin-bottom: 1.5rem;
+      }
+
+      #map {
+        height: 300px !important;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .app-container {
+        padding: 0.5rem;
+      }
+
+      .header h1 {
+        font-size: 2rem;
+      }
+
+      .content-wrapper {
+        padding: 1rem;
+      }
+
+      .search-container {
+        flex-direction: column;
+      }
+
+      .clima-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+
+      .temperatura-principal {
+        text-align: left;
+      }
+
+      .clima-detalhes {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .mare-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .tabs {
+        flex-direction: column;
+      }
+
+      .clima-detalhes {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Seção de Marés Standalone */
+    .mare-form-container {
+      display: grid;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (min-width: 768px) {
+      .mare-form-container {
+        grid-template-columns: 1fr 1fr 2fr auto;
+        align-items: end;
+      }
+    }
+
+    .mare-response {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--gray-200);
+      white-space: pre-wrap;
+      font-family: 'Poppins', sans-serif;
+      line-height: 1.6;
+      color: var(--gray-700);
+    }
+
+    /* Animações suaves */
+    .fade-in {
+      animation: fadeIn 0.5s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* Melhorias visuais */
+    .weather-icon {
+      width: 60px;
+      height: 60px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+    }
+
+    .info-tip {
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-size: 0.9rem;
+      color: var(--gray-600);
+      text-align: center;
+      margin: 1rem 0;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Info Clima & Marés</h1>
-    <div class="tabs">
-      <button class="tab-button active" onclick="showTab('clima')">Clima</button>
-      <button class="tab-button" onclick="showTab('mare')">Marés</button>
+  <div class="app-container">
+    <div class="header">
+      <h1><img src="{{ url_for('static', filename='image 1 (1).png') }}" alt="Logo CliMar" style="margin-bottom: 5px;height: 45px; vertical-align: middle;"> CliMar</h1>
+      <p>Informações meteorológicas e oceanográficas em tempo real</p>
     </div>
 
-    <!-- Seção Clima -->
-    <div id="clima" class="tab-content active">
-      <form id="clima-form">
-        <div class="search-container">
-          <input type="text" id="cidade" name="cidade" placeholder="Digite o nome da cidade..." required>
-          <button type="submit">Buscar</button>
+    <div class="main-content">
+      <div class="tabs-container">
+        <div class="tabs">
+          <button class="tab-button active" onclick="showTab('clima')">
+            <i class="fas fa-thermometer-half"></i>
+            Clima
+          </button>
+          <button class="tab-button" onclick="showTab('mare')">
+            <i class="fas fa-water"></i>
+            Marés
+          </button>
         </div>
-      </form>
-      <p style="text-align:center; color:#4a5568; font-size:0.9rem;">Ou clique no mapa para ver o clima</p>
-      <div id="map"></div>
-      <div class="loading" id="loading-clima"><p>Carregando clima...</p></div>
-      <div class="error-message" id="error-clima"></div>
-      <div id="resultado-clima"></div>
-    </div>
+      </div>
 
-    <!-- Seção Marés -->
-    <div id="mare" class="tab-content">
-      <form id="mare-form">
-        <label for="porto">Porto:</label>
-        <input type="text" id="porto" name="porto" placeholder="Ex: Porto de Recife" required>
-        <label for="data">Data:</label>
-        <input type="date" id="data" name="data" required>
-        <label for="pergunta">Pergunta:</label>
-        <input type="text" id="pergunta" name="pergunta" placeholder="Ex: Qual o horário da maré alta?" required>
-        <button type="submit">Consultar Maré</button>
-      </form>
-      <div class="loading" id="loading-mare"><p>Analisando dados da maré...</p></div>
-      <div class="error-message" id="error-mare"></div>
-      <div id="resultado-mare">
-        <h2>Resposta da Análise</h2>
-        <pre id="mare-resposta"></pre>
+      <div class="content-wrapper">
+        <!-- Seção Clima -->
+        <div id="clima" class="tab-content active">
+          <div class="clima-layout">
+            <div class="clima-left">
+              <div class="form-container">
+                <form id="clima-form">
+                  <div class="search-container">
+                    <div class="input-group">
+                      <label for="cidade">Localização</label>
+                      <input type="text" id="cidade" name="cidade" placeholder="Digite o nome da cidade" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                      <i class="fas fa-search"></i>
+                      Buscar
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="map-container">
+                <div class="map-header">
+                  <i class="fas fa-map-marker-alt"></i>
+                  Clique no mapa para ver o clima local
+                </div>
+                <div id="map"></div>
+              </div>
+            </div>
+
+            <div class="clima-right">
+              <div class="loading" id="loading-clima">
+                <div class="spinner"></div>
+                <p>Carregando informações do clima...</p>
+              </div>
+              <div class="error-message" id="error-clima"></div>
+              <div id="resultado-clima" class="resultado-clima-desktop"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Seção Marés -->
+        <div id="mare" class="tab-content">
+          <div class="form-container">
+            <form id="mare-form">
+              <div class="mare-form-container">
+                <div class="input-group">
+                  <label for="porto">Porto</label>
+                  <input type="text" id="porto" name="porto" placeholder="Ex: Porto de Recife" required>
+                </div>
+                <div class="input-group">
+                  <label for="data">Data</label>
+                  <input type="date" id="data" name="data" required>
+                </div>
+                <div class="input-group">
+                  <label for="pergunta">Pergunta</label>
+                  <input type="text" id="pergunta" name="pergunta" placeholder="Ex: Qual o horário da maré alta?" required>
+                </div>
+                <button type="submit" class="btn btn-ocean">
+                  <i class="fas fa-search"></i>
+                  Consultar
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="loading" id="loading-mare">
+            <div class="spinner"></div>
+            <p>Analisando dados da maré...</p>
+          </div>
+          <div class="error-message" id="error-mare"></div>
+          <div id="resultado-mare" style="display: none;">
+            <h2 style="margin-bottom: 1rem; color: var(--gray-800);">
+              <i class="fas fa-chart-line"></i>
+              Análise das Marés
+            </h2>
+            <div class="mare-response" id="mare-resposta"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -96,15 +763,29 @@
     // --- LÓGICA DA SEÇÃO DE CLIMA ---
     const map = L.map("map").setView([-15.78, -47.92], 4);
     let currentMarker = null;
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: "© OpenStreetMap" }).addTo(map);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { 
+      attribution: "© OpenStreetMap",
+      maxZoom: 18
+    }).addTo(map);
 
     const climaForm = document.getElementById('clima-form');
     const resultadoClimaDiv = document.getElementById('resultado-clima');
     const loadingClima = document.getElementById('loading-clima');
     const errorClima = document.getElementById('error-clima');
 
-    const showLoadingClima = show => { loadingClima.classList.toggle('active', show); if (show) { errorClima.classList.remove('active'); resultadoClimaDiv.classList.remove('active'); }};
-    const showErrorClima = message => { errorClima.textContent = message; errorClima.classList.add('active'); showLoadingClima(false); };
+    const showLoadingClima = show => { 
+      loadingClima.classList.toggle('active', show); 
+      if (show) { 
+        errorClima.classList.remove('active'); 
+        resultadoClimaDiv.style.display = 'none';
+      }
+    };
+
+    const showErrorClima = message => { 
+      errorClima.textContent = message; 
+      errorClima.classList.add('active'); 
+      showLoadingClima(false); 
+    };
 
     async function fetchClima(url) {
         showLoadingClima(true);
@@ -130,30 +811,150 @@
     map.on('click', (e) => fetchClima(`/clima?lat=${e.latlng.lat}&lon=${e.latlng.lng}`));
 
     function exibirDadosClima(data) {
-        resultadoClimaDiv.innerHTML = `
-            <div class="clima-principal">
-                <div>
-                    <h2>${data.cidade}, ${data.pais} <img src="https://openweathermap.org/img/wn/${data.icone}@2x.png" alt="Ícone do clima" style="display:inline-block; vertical-align:middle; width:50px;"></h2>
-                    <p style="text-transform: capitalize;">${data.descricao}</p>
+        let climaHTML = `
+            <div class="clima-card fade-in">
+                <div class="clima-header">
+                    <div class="clima-location">
+                        <div>
+                            <h2>${data.cidade}, ${data.pais}</h2>
+                            <div class="clima-description">${data.descricao}</div>
+                        </div>
+                        <img src="https://openweathermap.org/img/wn/${data.icone}@2x.png" alt="Ícone do clima" class="weather-icon">
+                    </div>
+                    <div class="temperatura-principal">
+                        <div class="temperatura">${Math.round(data.temperatura)}°C</div>
+                        <div class="sensacao">Sensação: ${Math.round(data.sensacao)}°C</div>
+                    </div>
                 </div>
-                <div>
-                    <p class="temperatura">${Math.round(data.temperatura)}°C</p>
-                    <p>Sensação: ${Math.round(data.sensacao)}°C</p>
+                <div class="clima-detalhes">
+                    <div class="detalhe">
+                        <div class="detalhe-icon"><i class="fas fa-thermometer-three-quarters"></i></div>
+                        <div class="detalhe-titulo">Min/Máx</div>
+                        <div class="detalhe-valor">${Math.round(data.temp_min)}°/${Math.round(data.temp_max)}°C</div>
+                    </div>
+                    <div class="detalhe">
+                        <div class="detalhe-icon"><i class="fas fa-tint"></i></div>
+                        <div class="detalhe-titulo">Umidade</div>
+                        <div class="detalhe-valor">${data.umidade}%</div>
+                    </div>
+                    <div class="detalhe">
+                        <div class="detalhe-icon"><i class="fas fa-wind"></i></div>
+                        <div class="detalhe-titulo">Vento</div>
+                        <div class="detalhe-valor">${data.vento} m/s</div>
+                    </div>
+                    <div class="detalhe">
+                        <div class="detalhe-icon"><i class="fas fa-compress-arrows-alt"></i></div>
+                        <div class="detalhe-titulo">Pressão</div>
+                        <div class="detalhe-valor">${data.pressao} hPa</div>
+                    </div>
+                    <div class="detalhe">
+                        <div class="detalhe-icon"><i class="fas fa-cloud"></i></div>
+                        <div class="detalhe-titulo">Nuvens</div>
+                        <div class="detalhe-valor">${data.nuvens}%</div>
+                    </div>
+                    <div class="detalhe">
+                        <div class="detalhe-icon"><i class="fas fa-eye"></i></div>
+                        <div class="detalhe-titulo">Visibilidade</div>
+                        <div class="detalhe-valor">${(data.visibilidade / 1000).toFixed(1)} km</div>
+                    </div>
+                    <div class="detalhe">
+                        <div class="detalhe-icon"><i class="fas fa-sun"></i></div>
+                        <div class="detalhe-titulo">Nascer do Sol</div>
+                        <div class="detalhe-valor">${data.nascer_do_sol}</div>
+                    </div>
+                    <div class="detalhe">
+                        <div class="detalhe-icon"><i class="fas fa-moon"></i></div>
+                        <div class="detalhe-titulo">Pôr do Sol</div>
+                        <div class="detalhe-valor">${data.por_do_sol}</div>
+                    </div>
                 </div>
-            </div>
-            <div class="clima-detalhes">
-                <div class="detalhe"><div class="detalhe-titulo">Temp. Mín/Máx</div><div class="detalhe-valor">${Math.round(data.temp_min)}°C / ${Math.round(data.temp_max)}°C</div></div>
-                <div class="detalhe"><div class="detalhe-titulo">Umidade</div><div class="detalhe-valor">${data.umidade}%</div></div>
-                <div class="detalhe"><div class="detalhe-titulo">Vento</div><div class="detalhe-valor">${data.vento} m/s</div></div>
-                <div class="detalhe"><div class="detalhe-titulo">Pressão</div><div class="detalhe-valor">${data.pressao} hPa</div></div>
-                <div class="detalhe"><div class="detalhe-titulo">Nuvens</div><div class="detalhe-valor">${data.nuvens}%</div></div>
-                <div class="detalhe"><div class="detalhe-titulo">Visibilidade</div><div class="detalhe-valor">${(data.visibilidade / 1000).toFixed(1)} km</div></div>
-                <div class="detalhe"><div class="detalhe-titulo">Nível do Mar</div><div class="detalhe-valor">${data.nivel_mar} hPa</div></div>
-                <div class="detalhe"><div class="detalhe-titulo">Nascer do Sol</div><div class="detalhe-valor">${data.nascer_do_sol}</div></div>
-                <div class="detalhe"><div class="detalhe-titulo">Pôr do Sol</div><div class="detalhe-valor">${data.por_do_sol}</div></div>
             </div>`;
-        resultadoClimaDiv.classList.add('active');
+
+        // Adiciona seção de marés se a cidade for litorânea
+        if (data.eh_litoranea && data.mare) {
+            climaHTML += gerarSecaoMare(data.mare);
+        } else if (data.eh_litoranea && !data.mare) {
+            climaHTML += `
+                <div class="mare-section fade-in">
+                   
+                    <div class="info-tip">
+                        <i class="fas fa-info-circle"></i>
+                        Dados de maré não disponíveis para esta localização.
+                        Consulte a aba "Marés" para informações específicas.
+                    </div>
+                </div>`;
+        }
+
+        resultadoClimaDiv.innerHTML = climaHTML;
+        resultadoClimaDiv.style.display = 'block';
         errorClima.classList.remove('active');
+    }
+
+    function gerarSecaoMare(dadosMare) {
+        let mareHTML = `
+            <div class="mare-section fade-in">
+               
+                <div class="mare-grid">`;
+
+        // Marés altas
+        if (dadosMare.mare_alta && dadosMare.mare_alta.length > 0) {
+            mareHTML += `
+                <div class="mare-card">
+                    <div class="mare-card-title">
+                        <i class="fas fa-arrow-up" style="color: var(--success);"></i>
+                        Marés Altas
+                    </div>`;
+            dadosMare.mare_alta.forEach(mare => {
+                mareHTML += `
+                    <div class="mare-item mare-alta">
+                        <span class="mare-hora">${mare.hora}</span>
+                        <span class="mare-altura">${mare.altura_m}m</span>
+                    </div>`;
+            });
+            mareHTML += `</div>`;
+        }
+
+        // Marés baixas
+        if (dadosMare.mare_baixa && dadosMare.mare_baixa.length > 0) {
+            mareHTML += `
+                <div class="mare-card">
+                    <div class="mare-card-title">
+                        <i class="fas fa-arrow-down" style="color: var(--warning);"></i>
+                        Marés Baixas
+                    </div>`;
+            dadosMare.mare_baixa.forEach(mare => {
+                mareHTML += `
+                    <div class="mare-item mare-baixa">
+                        <span class="mare-hora">${mare.hora}</span>
+                        <span class="mare-altura">${mare.altura_m}m</span>
+                    </div>`;
+            });
+            mareHTML += `</div>`;
+        }
+
+        mareHTML += `</div>`;
+
+        // Próxima maré
+        if (dadosMare.proxima_mare) {
+            const tipoMare = dadosMare.proxima_mare.tipo === 'alta' ? 'Alta' : 'Baixa';
+            const emoji = dadosMare.proxima_mare.tipo === 'alta' ? '⬆️' : '⬇️';
+            mareHTML += `
+                <div class="proxima-mare">
+                    <div class="proxima-mare-title">Próxima Maré ${emoji}</div>
+                    <div class="proxima-mare-info">
+                        ${tipoMare} às ${dadosMare.proxima_mare.hora} (${dadosMare.proxima_mare.altura_m}m)
+                    </div>
+                </div>`;
+        }
+
+        mareHTML += `
+                <div class="info-tip">
+                    <i class="fas fa-chart-line"></i>
+                    Dados calculados com base na localização geográfica e modelos oceanográficos atualizados
+                </div>
+            </div>`;
+        
+        return mareHTML;
     }
 
     function atualizarMapa(lat, lon, nome) {
@@ -169,8 +970,19 @@
     const loadingMare = document.getElementById('loading-mare');
     const errorMare = document.getElementById('error-mare');
 
-    const showLoadingMare = show => { loadingMare.classList.toggle('active', show); if (show) { errorMare.classList.remove('active'); resultadoMareDiv.classList.remove('active'); }};
-    const showErrorMare = message => { errorMare.textContent = message; errorMare.classList.add('active'); showLoadingMare(false); };
+    const showLoadingMare = show => { 
+      loadingMare.classList.toggle('active', show); 
+      if (show) { 
+        errorMare.classList.remove('active'); 
+        resultadoMareDiv.style.display = 'none';
+      }
+    };
+
+    const showErrorMare = message => { 
+      errorMare.textContent = message; 
+      errorMare.classList.add('active'); 
+      showLoadingMare(false); 
+    };
 
     mareForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -189,7 +1001,8 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.erro || 'Ocorreu um erro no servidor');
         mareResposta.textContent = data.resposta;
-        resultadoMareDiv.classList.add('active');
+        resultadoMareDiv.style.display = 'block';
+        resultadoMareDiv.classList.add('fade-in');
         errorMare.classList.remove('active');
       } catch (error) {
         showErrorMare(error.message);
@@ -206,3 +1019,4 @@
   </script>
 </body>
 </html>
+
