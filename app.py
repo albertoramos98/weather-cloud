@@ -287,8 +287,8 @@ def processar_pergunta_mare(dados_mare, porto_usuario, data_usuario, pergunta):
     if not mares_data:
         return "Dados de maré para esta data estão indisponíveis ou incompletos."
 
-    altas = [(m['hora'], m['altura_m']) for m in mares_data if m['tipo'] == 'alta']
-    baixas = [(m['hora'], m['altura_m']) for m in mares_data if m['tipo'] == 'baixa']
+    altas = [(m['hora'], m['altura_m']) for m in mares_data if m['tipo'] == 'baixa']
+    baixas =  [(m['hora'], m['altura_m']) for m in mares_data if m['tipo'] == 'alta']
     pergunta = pergunta.lower()
 
     # Maré mais alta (variações)
@@ -692,12 +692,13 @@ def processar_dados_tabua_mares(dados_mes):
             continue
             
         # Separar marés altas e baixas
-        mares_altas = [m for m in mares if m.get('tipo') == 'alta']
-        mares_baixas = [m for m in mares if m.get('tipo') == 'baixa']
+        mares_altas = [m for m in mares if m.get('tipo') == 'baixa']
+        mares_baixas =  [m for m in mares if m.get('tipo') == 'alta']
+       
         
         # Encontrar a maré mais alta e mais baixa do dia
-        mare_mais_alta = max(mares_altas, key=lambda x: x.get('altura_m', 0)) if mares_altas else None
-        mare_mais_baixa = min(mares_baixas, key=lambda x: x.get('altura_m', float('inf'))) if mares_baixas else None
+        mare_mais_alta = min(mares_baixas, key=lambda x: x.get('altura_m', float('inf'))) if mares_baixas else None
+        mare_mais_baixa = max(mares_altas, key=lambda x: x.get('altura_m', 0)) if mares_altas else None
         
         dia_data = {
             'data': data,

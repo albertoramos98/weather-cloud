@@ -209,36 +209,55 @@
     .search-container {
       display: flex;
       gap: 0.75rem;
-      align-items: end;
+      align-items: center;
     }
 
-    .input-group {
-      flex: 1;
-    }
+    .search-container {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center; /* Alinha o botão e os inputs no centro */
+}
+.btn {
+  margin-top: 10px; /* Ajuste este valor conforme necessário para alinhar */
+}
 
-    label {
-      display: block;
-      font-weight: 500;
-      color: var(--gray-700);
-      margin-bottom: 0.5rem;
-      font-size: 0.9rem;
-    }
 
-    input[type="text"], input[type="date"] {
-      width: 100%;
-      padding: 0.875rem 1rem;
-      border: 2px solid var(--gray-200);
-      border-radius: 12px;
-      font-size: 1rem;
-      transition: all 0.2s ease;
-      background: white;
-    }
+  .input-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.25rem;
+}
 
-    input[type="text"]:focus, input[type="date"]:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
+label {
+  display: block;
+  font-weight: 600;
+  color: #374151; /* Um cinza mais escuro e neutro */
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+input[type="text"],
+input[type="date"],
+input[type="month"] {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1.8px solid #d1d5db; /* gray-300 */
+  border-radius: 0.75rem;
+  font-size: 1rem;
+  background: #ffffff;
+  color: #111827; /* gray-900 */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input[type="text"]:focus,
+input[type="date"]:focus,
+input[type="month"]:focus {
+  outline: none;
+  border-color: #3b82f6; /* azul suave */
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); /* azul transparente */
+}
+
 
     .btn {
       padding: 0.875rem 1.5rem;
@@ -253,6 +272,8 @@
       text-decoration: none;
       font-size: 0.95rem;
     }
+
+    
 
     .btn-primary {
       background: rgb(223, 227, 234);
@@ -293,7 +314,7 @@
       font-weight: 500;
     }
 
-    #map {
+    #map, #map-tabua {
       height: 350px;
       width: 100%;
       border-radius: 12px;
@@ -530,6 +551,8 @@
     .error-message.active {
       display: block;
     }
+
+    
 
     /* Responsividade */
     @media (max-width: 1023px) {
@@ -815,9 +838,16 @@
       
       // Inicializar mapas quando necessário
       if (tabName === 'clima' && !map) {
-        initMap();
+        setTimeout(() => initMap(), 100);
       } else if (tabName === 'tabua' && !mapTabua) {
-        initMapTabua();
+        setTimeout(() => initMapTabua(), 100);
+      }
+      
+      // Redimensionar mapas existentes quando a aba é mostrada
+      if (tabName === 'clima' && map) {
+        setTimeout(() => map.invalidateSize(), 100);
+      } else if (tabName === 'tabua' && mapTabua) {
+        setTimeout(() => mapTabua.invalidateSize(), 100);
       }
     }
 
@@ -1224,15 +1254,19 @@
           datasets: [{
             label: 'Altura da Maré (m)',
             data: dadosGrafico.alturas,
-            borderColor: 'var(--primary)',
+            borderColor: '#145faa',
             backgroundColor: 'rgba(20, 95, 170, 0.1)',
-            borderWidth: 2,
+            borderWidth: 3,
             fill: true,
             tension: 0.4,
             pointBackgroundColor: dadosGrafico.cores,
-            pointBorderColor: dadosGrafico.cores,
-            pointRadius: 4,
-            pointHoverRadius: 6
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            pointHoverBackgroundColor: dadosGrafico.cores,
+            pointHoverBorderColor: '#ffffff',
+            pointHoverBorderWidth: 3
           }]
         },
         options: {
@@ -1241,14 +1275,32 @@
           plugins: {
             legend: {
               display: true,
-              position: 'top'
+              position: 'top',
+              labels: {
+                font: {
+                  size: 14,
+                  weight: 'bold'
+                },
+                color: '#374151'
+              }
             },
             tooltip: {
               mode: 'index',
               intersect: false,
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              titleColor: '#ffffff',
+              bodyColor: '#ffffff',
+              borderColor: '#145faa',
+              borderWidth: 1,
+              cornerRadius: 8,
+              displayColors: false,
               callbacks: {
                 label: function(context) {
-                  return `Altura: ${context.parsed.y}m`;
+                  const tipo = dadosGrafico.cores[context.dataIndex] === '#10b981' ? 'Maré Alta' : 'Maré Baixa';
+                  return `${tipo}: ${context.parsed.y}m`;
+                },
+                title: function(context) {
+                  return `Data: ${context[0].label}`;
                 }
               }
             }
@@ -1258,22 +1310,59 @@
               display: true,
               title: {
                 display: true,
-                text: 'Data'
+                text: 'Data e Hora',
+                font: {
+                  size: 14,
+                  weight: 'bold'
+                },
+                color: '#374151'
+              },
+              ticks: {
+                maxTicksLimit: 10,
+                color: '#6b7280',
+                font: {
+                  size: 11
+                }
+              },
+              grid: {
+                color: 'rgba(107, 114, 128, 0.1)'
               }
             },
             y: {
               display: true,
               title: {
                 display: true,
-                text: 'Altura (metros)'
+                text: 'Altura (metros)',
+                font: {
+                  size: 14,
+                  weight: 'bold'
+                },
+                color: '#374151'
               },
-              beginAtZero: false
+              beginAtZero: false,
+              ticks: {
+                color: '#6b7280',
+                font: {
+                  size: 12
+                },
+                callback: function(value) {
+                  return value.toFixed(2) + 'm';
+                }
+              },
+              grid: {
+                color: 'rgba(107, 114, 128, 0.1)'
+              }
             }
           },
           interaction: {
             mode: 'nearest',
             axis: 'x',
             intersect: false
+          },
+          elements: {
+            point: {
+              hoverRadius: 8
+            }
           }
         }
       });
