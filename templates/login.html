@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #061850 20%, #85daf5 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      color: #374151;
+    }
+    .login-container {
+      background: white;
+      padding: 2.5rem 2rem;
+      border-radius: 20px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+      width: 360px;
+      text-align: center;
+    }
+    h2 {
+      margin-bottom: 2rem;
+      font-weight: 600;
+      color:  #145faa;
+      letter-spacing: 1px;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    label {
+      font-size: 0.9rem;
+      color: #555;
+      text-align: left;
+      font-weight: 500;
+    }
+    input[type="password"] {
+      padding: 0.85rem 1.2rem;
+      border: 2px solid #d1d5db;
+      border-radius: 14px;
+      font-size: 1rem;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+      outline-offset: 2px;
+    }
+    input[type="password"]:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+      outline: none;
+    }
+    button {
+      background: linear-gradient(135deg,  #145faa,  #2b83db);
+      color: white;
+      padding: 0.95rem 1.5rem;
+      border: none;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(0, 184, 230, 0.4);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    button:hover,
+    button:focus {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 25px rgba(0, 184, 230, 0.6);
+      outline: none;
+    }
+    .flash {
+      margin-bottom: 1rem;
+      font-weight: 600;
+      text-align: center;
+      user-select: none;
+    }
+    .flash.success { color: #10b981; }
+    .flash.danger { color: #ef4444; }
+    .flash.info { color: #3b82f6; }
+  </style>
+</head>
+<body>
+  <div class="login-container" role="main" aria-label="Formulário de login">
+    <h2>Faça seu Login</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash {{category}}" role="alert" aria-live="assertive">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <form method="POST" action="{{ url_for('login') }}" novalidate>
+      <label for="senha">Senha</label>
+      <input type="password" id="senha" name="senha" placeholder="Digite sua senha" autocomplete="current-password" required aria-required="true" />
+      <button type="submit">Entrar</button>
+    </form>
+  </div>
+</body>
+</html>

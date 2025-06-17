@@ -1,13 +1,46 @@
+
 import os
 import json
 import requests
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session, flash
 from datetime import datetime, timezone, timedelta
 import math
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)  # Para sessões e flash
+
+ADMIN_PASSWORD_RAW = os.getenv("ADMIN_PASSWORD", "admin")
+ADMIN_HASH = generate_password_hash(ADMIN_PASSWORD_RAW)
 
 API_KEY = os.environ.get("OPENWEATHER_API_KEY", "0153a042112f9529edbc2bad5372a198")
+
+
+
+
+@app.route("/")
+def index():
+    if not session.get("logado"):
+        return redirect(url_for("login"))
+    return render_template("index.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        senha_digitada = request.form.get("senha")
+        if check_password_hash(ADMIN_HASH, senha_digitada):
+            session["logado"] = True
+            flash("Login realizado com sucesso!", "success")
+            return redirect(url_for("index"))
+        else:
+            flash("Senha incorreta", "danger")
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    session.pop("logado", None)
+    flash("Você saiu da sessão.", "info")
+    return redirect(url_for("login"))
 
 # --- Portos com localização geográfica (para cálculo de distância)
 PORTOS_DISPONIVEIS = [
@@ -184,9 +217,6 @@ def formatar_dados_mare_para_clima(dados_mare):
     return resultado
 
 # --- Rota principal ---
-@app.route("/")
-def index():
-    return render_template("index.html")
 
 # --- Rota da API de Clima (com maré) ---
 @app.route("/clima")
