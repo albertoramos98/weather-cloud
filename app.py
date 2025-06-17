@@ -1,13 +1,46 @@
+
 import os
 import json
 import requests
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect, url_for, session, flash
 from datetime import datetime, timezone, timedelta
 import math
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)  # Para sessões e flash
+
+ADMIN_PASSWORD_RAW = os.getenv("ADMIN_PASSWORD", "admin")
+ADMIN_HASH = generate_password_hash(ADMIN_PASSWORD_RAW)
 
 API_KEY = os.environ.get("OPENWEATHER_API_KEY", "0153a042112f9529edbc2bad5372a198")
+
+
+
+
+@app.route("/")
+def index():
+    if not session.get("logado"):
+        return redirect(url_for("login"))
+    return render_template("index.html")
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        senha_digitada = request.form.get("senha")
+        if check_password_hash(ADMIN_HASH, senha_digitada):
+            session["logado"] = True
+            flash("Login realizado com sucesso!", "success")
+            return redirect(url_for("index"))
+        else:
+            flash("Senha incorreta", "danger")
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    session.pop("logado", None)
+    flash("Você saiu da sessão.", "info")
+    return redirect(url_for("login"))
 
 # --- Portos com localização geográfica (para cálculo de distância)
 PORTOS_DISPONIVEIS = [
@@ -184,9 +217,6 @@ def formatar_dados_mare_para_clima(dados_mare):
     return resultado
 
 # --- Rota principal ---
-@app.route("/")
-def index():
-    return render_template("index.html")
 
 # --- Rota da API de Clima (com maré) ---
 @app.route("/clima")
@@ -287,8 +317,8 @@ def processar_pergunta_mare(dados_mare, porto_usuario, data_usuario, pergunta):
     if not mares_data:
         return "Dados de maré para esta data estão indisponíveis ou incompletos."
 
-    altas = [(m['hora'], m['altura_m']) for m in mares_data if m['tipo'] == 'alta']
-    baixas = [(m['hora'], m['altura_m']) for m in mares_data if m['tipo'] == 'baixa']
+    altas = [(m['hora'], m['altura_m']) for m in mares_data if m['tipo'] == 'baixa']
+    baixas =  [(m['hora'], m['altura_m']) for m in mares_data if m['tipo'] == 'alta']
     pergunta = pergunta.lower()
 
     # Maré mais alta (variações)
@@ -344,6 +374,226 @@ def processar_pergunta_mare(dados_mare, porto_usuario, data_usuario, pergunta):
             "- 'Qual será a maré mais alta?'\n"
             "- 'Quantas marés altas teremos?'")
 
+
+# --- Rota da API de Tábua Mensal ---
+@app.route("/tabua-mensal")
+def obter_tabua_mensal():
+    cidade = request.args.get("cidade")
+    mes = request.args.get("mes")  # formato: YYYY-MM
+    
+    if not cidade or not mes:
+        return jsonify({"erro": "Informe a cidade e o mês"}), 400
+    
+    try:
+        # Obter coordenadas da cidade
+        link_geo = f"https://api.openweathermap.org/geo/1.0/direct?q={cidade}&limit=1&appid={API_KEY}"
+        resposta_geo = requests.get(link_geo)
+        resposta_geo.raise_for_status()
+        dados_geo = resposta_geo.json()
+        
+        if not dados_geo:
+            return jsonify({"erro": "Cidade não encontrada"}), 404
+            
+        lat = dados_geo[0]['lat']
+        lon = dados_geo[0]['lon']
+        nome_cidade = dados_geo[0]['name']
+        
+        # Encontrar porto mais próximo
+        dist, porto_id, nome_porto = porto_mais_proximo(lat, lon)
+        
+        if dist > 50:  # Se muito longe do mar
+            return jsonify({"erro": "Esta localização está muito distante do mar para dados de maré"}), 400
+        
+        # Obter dados de marés para o mês
+        dados_mensais = obter_dados_mare_mensal(porto_id, mes)
+        
+        if not dados_mensais:
+            return jsonify({"erro": f"Não há dados de maré disponíveis para {nome_cidade} no mês {mes}"}), 404
+        
+        # Obter dados climáticos para alerta
+        link_clima = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={API_KEY}&lang=pt_br&units=metric"
+        resposta_clima = requests.get(link_clima)
+        dados_clima = resposta_clima.json() if resposta_clima.status_code == 200 else None
+        
+        # Calcular alerta de alagamento
+        alerta = calcular_alerta_alagamento(dados_mensais, dados_clima)
+        
+        # Preparar resposta
+        resultado = {
+            "cidade": nome_cidade,
+            "porto": nome_porto,
+            "mes_nome": obter_nome_mes(mes),
+            "ano": mes.split('-')[0],
+            "dados_grafico": preparar_dados_grafico(dados_mensais),
+            "estatisticas": calcular_estatisticas_mensais(dados_mensais),
+            "alerta": alerta
+        }
+        
+        return jsonify(resultado)
+        
+    except requests.exceptions.RequestException as e:
+        return jsonify({"erro": f"Erro na requisição: {str(e)}"}), 500
+    except Exception as e:
+        return jsonify({"erro": f"Erro interno: {str(e)}"}), 500
+
+def obter_dados_mare_mensal(porto_id, mes):
+    """Obter dados de maré para um mês específico"""
+    dados_mare = carregar_dados_mare()
+    if not dados_mare:
+        return None
+    
+    termo_busca = porto_id.replace("_", " ")
+    dados_do_mes = []
+    
+    for item in dados_mare:
+        if termo_busca in item.get('local', '').lower():
+            data_item = item.get('data', '')
+            if data_item.startswith(mes):  # YYYY-MM
+                dados_do_mes.append(item)
+    
+    return dados_do_mes
+
+def obter_nome_mes(mes_str):
+    """Converter YYYY-MM para nome do mês em português"""
+    meses = {
+        '01': 'Janeiro', '02': 'Fevereiro', '03': 'Março', '04': 'Abril',
+        '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
+        '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro'
+    }
+    mes_num = mes_str.split('-')[1]
+    return meses.get(mes_num, 'Mês')
+
+def preparar_dados_grafico(dados_mensais):
+    """Preparar dados para o gráfico Chart.js"""
+    labels = []
+    alturas = []
+    cores = []
+    
+    for dia_dados in sorted(dados_mensais, key=lambda x: x.get('data', '')):
+        data = dia_dados.get('data', '')
+        mares = dia_dados.get('mares', [])
+        
+        for mare in mares:
+            # Formato: DD/MM
+            dia = data.split('-')[2]
+            mes = data.split('-')[1]
+            label = f"{dia}/{mes}"
+            
+            labels.append(f"{label} {mare['hora']}")
+            alturas.append(float(mare['altura_m']))
+            
+            # Cor baseada no tipo de maré
+            if mare['tipo'] == 'alta':
+                cores.append('#10b981')  # Verde para maré alta
+            else:
+                cores.append('#f59e0b')  # Amarelo para maré baixa
+    
+    return {
+        "labels": labels,
+        "alturas": alturas,
+        "cores": cores
+    }
+
+def calcular_estatisticas_mensais(dados_mensais):
+    """Calcular estatísticas do mês"""
+    todas_mares = []
+    mares_altas = []
+    mares_baixas = []
+    
+    for dia_dados in dados_mensais:
+        mares = dia_dados.get('mares', [])
+        for mare in mares:
+            altura = float(mare['altura_m'])
+            todas_mares.append(altura)
+            
+            if mare['tipo'] == 'alta':
+                mares_altas.append(altura)
+            else:
+                mares_baixas.append(altura)
+    
+    if not todas_mares:
+        return {
+            "maior_alta": "N/A",
+            "menor_baixa": "N/A", 
+            "amplitude_media": "N/A",
+            "total_mares": 0
+        }
+    
+    maior_alta = max(mares_altas) if mares_altas else 0
+    menor_baixa = min(mares_baixas) if mares_baixas else 0
+    amplitude_media = round((maior_alta - menor_baixa), 2) if mares_altas and mares_baixas else 0
+    
+    return {
+        "maior_alta": f"{maior_alta:.2f}",
+        "menor_baixa": f"{menor_baixa:.2f}",
+        "amplitude_media": f"{amplitude_media:.2f}",
+        "total_mares": len(todas_mares)
+    }
+
+def calcular_alerta_alagamento(dados_mensais, dados_clima):
+    """Calcular nível de alerta de alagamento baseado em marés e clima"""
+    if not dados_mensais:
+        return {
+            "nivel": "BAIXO",
+            "descricao": "Dados insuficientes para análise"
+        }
+    
+    # Calcular altura média das marés altas
+    mares_altas = []
+    for dia_dados in dados_mensais:
+        mares = dia_dados.get('mares', [])
+        for mare in mares:
+            if mare['tipo'] == 'alta':
+                mares_altas.append(float(mare['altura_m']))
+    
+    if not mares_altas:
+        return {
+            "nivel": "BAIXO",
+            "descricao": "Sem dados de marés altas disponíveis"
+        }
+    
+    altura_media_alta = sum(mares_altas) / len(mares_altas)
+    altura_maxima = max(mares_altas)
+    
+    # Fatores climáticos (se disponíveis)
+    fator_clima = 1.0
+    if dados_clima:
+        # Pressão baixa e umidade alta aumentam risco
+        pressao = dados_clima.get('main', {}).get('pressure', 1013)
+        umidade = dados_clima.get('main', {}).get('humidity', 50)
+        vento = dados_clima.get('wind', {}).get('speed', 0)
+        
+        if pressao < 1000:  # Pressão muito baixa
+            fator_clima += 0.3
+        elif pressao < 1010:  # Pressão baixa
+            fator_clima += 0.1
+            
+        if umidade > 80:  # Umidade muito alta
+            fator_clima += 0.2
+        elif umidade > 70:  # Umidade alta
+            fator_clima += 0.1
+            
+        if vento > 10:  # Vento forte
+            fator_clima += 0.2
+    
+    # Calcular risco baseado na altura das marés e fatores climáticos
+    risco_base = altura_maxima * fator_clima
+    
+    if risco_base >= 2.5 or altura_media_alta >= 2.0:
+        return {
+            "nivel": "ALTO",
+            "descricao": "Marés excepcionalmente altas combinadas com condições climáticas adversas. Alto risco de alagamentos costeiros."
+        }
+    elif risco_base >= 1.8 or altura_media_alta >= 1.5:
+        return {
+            "nivel": "MÉDIO", 
+            "descricao": "Marés elevadas com possível influência de condições meteorológicas. Risco moderado de alagamentos em áreas baixas."
+        }
+    else:
+        return {
+            "nivel": "BAIXO",
+            "descricao": "Condições normais de maré. Baixo risco de alagamentos, mas mantenha-se atento às condições locais."
+        }
 
 # --- Execução local ---
 if __name__ == "__main__":
@@ -472,12 +722,13 @@ def processar_dados_tabua_mares(dados_mes):
             continue
             
         # Separar marés altas e baixas
-        mares_altas = [m for m in mares if m.get('tipo') == 'alta']
-        mares_baixas = [m for m in mares if m.get('tipo') == 'baixa']
+        mares_altas = [m for m in mares if m.get('tipo') == 'baixa']
+        mares_baixas =  [m for m in mares if m.get('tipo') == 'alta']
+       
         
         # Encontrar a maré mais alta e mais baixa do dia
-        mare_mais_alta = max(mares_altas, key=lambda x: x.get('altura_m', 0)) if mares_altas else None
-        mare_mais_baixa = min(mares_baixas, key=lambda x: x.get('altura_m', float('inf'))) if mares_baixas else None
+        mare_mais_alta = min(mares_baixas, key=lambda x: x.get('altura_m', float('inf'))) if mares_baixas else None
+        mare_mais_baixa = max(mares_altas, key=lambda x: x.get('altura_m', 0)) if mares_altas else None
         
         dia_data = {
             'data': data,

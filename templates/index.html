@@ -209,36 +209,55 @@
     .search-container {
       display: flex;
       gap: 0.75rem;
-      align-items: end;
+      align-items: center;
     }
 
-    .input-group {
-      flex: 1;
-    }
+    .search-container {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center; /* Alinha o botão e os inputs no centro */
+}
+.btn {
+  margin-top: 10px; /* Ajuste este valor conforme necessário para alinhar */
+}
 
-    label {
-      display: block;
-      font-weight: 500;
-      color: var(--gray-700);
-      margin-bottom: 0.5rem;
-      font-size: 0.9rem;
-    }
 
-    input[type="text"], input[type="date"] {
-      width: 100%;
-      padding: 0.875rem 1rem;
-      border: 2px solid var(--gray-200);
-      border-radius: 12px;
-      font-size: 1rem;
-      transition: all 0.2s ease;
-      background: white;
-    }
+  .input-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.25rem;
+}
 
-    input[type="text"]:focus, input[type="date"]:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
+label {
+  display: block;
+  font-weight: 600;
+  color: #374151; /* Um cinza mais escuro e neutro */
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+input[type="text"],
+input[type="date"],
+input[type="month"] {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1.8px solid #d1d5db; /* gray-300 */
+  border-radius: 0.75rem;
+  font-size: 1rem;
+  background: #ffffff;
+  color: #111827; /* gray-900 */
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input[type="text"]:focus,
+input[type="date"]:focus,
+input[type="month"]:focus {
+  outline: none;
+  border-color: #3b82f6; /* azul suave */
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15); /* azul transparente */
+}
+
 
     .btn {
       padding: 0.875rem 1.5rem;
@@ -253,6 +272,8 @@
       text-decoration: none;
       font-size: 0.95rem;
     }
+
+    
 
     .btn-primary {
       background: rgb(223, 227, 234);
@@ -293,7 +314,7 @@
       font-weight: 500;
     }
 
-    #map {
+    #map, #map-tabua {
       height: 350px;
       width: 100%;
       border-radius: 12px;
@@ -531,6 +552,8 @@
       display: block;
     }
 
+    
+
     /* Responsividade */
     @media (max-width: 1023px) {
       .clima-layout {
@@ -665,6 +688,10 @@
             <i class="fas fa-water"></i>
             Marés
           </button>
+          <button class="tab-button" onclick="showTab('tabua')">
+            <i class="fas fa-calendar-alt"></i>
+            Tábua Mensal
+          </button>
         </div>
       </div>
 
@@ -745,29 +772,126 @@
             </h2>
             <div class="mare-response" id="mare-resposta"></div>
           </div>
+                </div>
+        </div>
+
+        <!-- Seção Tábua Mensal -->
+        <div id="tabua" class="tab-content">
+          <div class="clima-layout">
+            <div class="clima-left">
+              <div class="form-container">
+                <form id="tabua-form">
+                  <div class="search-container">
+                    <div class="input-group">
+                      <label for="cidade-tabua">Localização</label>
+                      <input type="text" id="cidade-tabua" name="cidade" placeholder="Digite o nome da cidade" required>
+                    </div>
+                    <div class="input-group">
+                      <label for="mes-tabua">Mês</label>
+                      <input type="month" id="mes-tabua" name="mes" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                      <i class="fas fa-chart-line"></i>
+                      Gerar Tábua
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="map-container">
+                <div class="map-header">
+                  <i class="fas fa-map-marker-alt"></i>
+                  Clique no mapa para selecionar a localização
+                </div>
+                <div id="map-tabua"></div>
+              </div>
+            </div>
+
+            <div class="clima-right">
+              <div class="loading" id="loading-tabua">
+                <div class="spinner"></div>
+                <p>Gerando tábua de marés mensal...</p>
+              </div>
+              <div class="error-message" id="error-tabua"></div>
+              <div id="resultado-tabua" class="resultado-clima-desktop"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
-    // --- LÓGICA GERAL E DE ABAS ---
+    // --- VARIÁVEIS GLOBAIS ---
+    let map, mapTabua;
+    let currentMarker, currentMarkerTabua;
+
+    // --- FUNÇÕES DE NAVEGAÇÃO ---
     function showTab(tabName) {
-      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-      document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
+      
       document.getElementById(tabName).classList.add('active');
-      document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
+      event.target.classList.add('active');
+      
+      // Inicializar mapas quando necessário
+      if (tabName === 'clima' && !map) {
+        setTimeout(() => initMap(), 100);
+      } else if (tabName === 'tabua' && !mapTabua) {
+        setTimeout(() => initMapTabua(), 100);
+      }
+      
+      // Redimensionar mapas existentes quando a aba é mostrada
+      if (tabName === 'clima' && map) {
+        setTimeout(() => map.invalidateSize(), 100);
+      } else if (tabName === 'tabua' && mapTabua) {
+        setTimeout(() => mapTabua.invalidateSize(), 100);
+      }
     }
 
-    // --- LÓGICA DA SEÇÃO DE CLIMA ---
-    const map = L.map("map").setView([-15.78, -47.92], 4);
-    let currentMarker = null;
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { 
-      attribution: "© OpenStreetMap",
-      maxZoom: 18
-    }).addTo(map);
+    // --- INICIALIZAÇÃO DOS MAPAS ---
+    function initMap() {
+      map = L.map('map').setView([-14.235, -51.9253], 4);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
+      
+      map.on('click', (e) => {
+        const { lat, lng } = e.latlng;
+        fetchClima(`/clima?lat=${lat}&lon=${lng}`);
+      });
+    }
 
+    function initMapTabua() {
+      mapTabua = L.map('map-tabua').setView([-14.235, -51.9253], 4);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(mapTabua);
+      
+      mapTabua.on('click', (e) => {
+        const { lat, lng } = e.latlng;
+        // Buscar cidade mais próxima e preencher campo
+        fetch(`https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lng}&limit=1&appid=0153a042112f9529edbc2bad5372a198`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.length > 0) {
+              document.getElementById('cidade-tabua').value = data[0].name;
+              atualizarMapaTabua(lat, lng, data[0].name);
+            }
+          })
+          .catch(console.error);
+      });
+    }
+
+    function atualizarMapaTabua(lat, lon, nome) {
+      if (currentMarkerTabua) mapTabua.removeLayer(currentMarkerTabua);
+      currentMarkerTabua = L.marker([lat, lon]).addTo(mapTabua).bindPopup(`<b>${nome}</b>`).openPopup();
+      mapTabua.setView([lat, lon], 10);
+    }
+
+    // --- LÓGICA DA SEÇÃO CLIMA ---
     const climaForm = document.getElementById('clima-form');
     const resultadoClimaDiv = document.getElementById('resultado-clima');
     const loadingClima = document.getElementById('loading-clima');
@@ -777,7 +901,7 @@
       loadingClima.classList.toggle('active', show); 
       if (show) { 
         errorClima.classList.remove('active'); 
-        resultadoClimaDiv.style.display = 'none';
+        resultadoClimaDiv.innerHTML = '';
       }
     };
 
@@ -787,113 +911,109 @@
       showLoadingClima(false); 
     };
 
-    async function fetchClima(url) {
-        showLoadingClima(true);
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.erro || 'Erro desconhecido');
-            exibirDadosClima(data);
-            atualizarMapa(data.latitude, data.longitude, data.cidade);
-        } catch (error) {
-            showErrorClima(error.message);
-        } finally {
-            showLoadingClima(false);
-        }
-    }
-
     climaForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const cidade = document.getElementById('cidade').value.trim();
-        if (cidade) fetchClima(`/clima?cidade=${encodeURIComponent(cidade)}`);
+      e.preventDefault();
+      const cidade = document.getElementById('cidade').value;
+      fetchClima(`/clima?cidade=${encodeURIComponent(cidade)}`);
     });
 
-    map.on('click', (e) => fetchClima(`/clima?lat=${e.latlng.lat}&lon=${e.latlng.lng}`));
+    async function fetchClima(url) {
+      showLoadingClima(true);
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.erro || 'Erro desconhecido');
+        exibirResultadoClima(data);
+        atualizarMapa(data.latitude, data.longitude, data.cidade);
+      } catch (error) {
+        showErrorClima(error.message);
+      } finally {
+        showLoadingClima(false);
+      }
+    }
 
-    function exibirDadosClima(data) {
-        let climaHTML = `
+    function exibirResultadoClima(dados) {
+        let html = `
             <div class="clima-card fade-in">
                 <div class="clima-header">
                     <div class="clima-location">
+                        <img src="https://openweathermap.org/img/wn/${dados.icone}@2x.png" alt="${dados.descricao}" class="weather-icon">
                         <div>
-                            <h2>${data.cidade}, ${data.pais}</h2>
-                            <div class="clima-description">${data.descricao}</div>
+                            <h2>${dados.cidade}, ${dados.pais}</h2>
+                            <p class="clima-description">${dados.descricao}</p>
                         </div>
-                        <img src="https://openweathermap.org/img/wn/${data.icone}@2x.png" alt="Ícone do clima" class="weather-icon">
                     </div>
                     <div class="temperatura-principal">
-                        <div class="temperatura">${Math.round(data.temperatura)}°C</div>
-                        <div class="sensacao">Sensação: ${Math.round(data.sensacao)}°C</div>
+                        <div class="temperatura">${Math.round(dados.temperatura)}°C</div>
+                        <div class="sensacao">Sensação: ${Math.round(dados.sensacao)}°C</div>
                     </div>
                 </div>
+
                 <div class="clima-detalhes">
                     <div class="detalhe">
-                        <div class="detalhe-icon"><i class="fas fa-thermometer-three-quarters"></i></div>
-                        <div class="detalhe-titulo">Min/Máx</div>
-                        <div class="detalhe-valor">${Math.round(data.temp_min)}°/${Math.round(data.temp_max)}°C</div>
+                        <div class="detalhe-icon"><i class="fas fa-thermometer-quarter"></i></div>
+                        <div class="detalhe-titulo">Mín/Máx</div>
+                        <div class="detalhe-valor">${Math.round(dados.temp_min)}° / ${Math.round(dados.temp_max)}°</div>
+                    </div>
+                    <div class="detalhe">
+                        <div class="detalhe-icon"><i class="fas fa-tachometer-alt"></i></div>
+                        <div class="detalhe-titulo">Pressão</div>
+                        <div class="detalhe-valor">${dados.pressao} hPa</div>
                     </div>
                     <div class="detalhe">
                         <div class="detalhe-icon"><i class="fas fa-tint"></i></div>
                         <div class="detalhe-titulo">Umidade</div>
-                        <div class="detalhe-valor">${data.umidade}%</div>
+                        <div class="detalhe-valor">${dados.umidade}%</div>
                     </div>
                     <div class="detalhe">
                         <div class="detalhe-icon"><i class="fas fa-wind"></i></div>
                         <div class="detalhe-titulo">Vento</div>
-                        <div class="detalhe-valor">${data.vento} m/s</div>
-                    </div>
-                    <div class="detalhe">
-                        <div class="detalhe-icon"><i class="fas fa-compress-arrows-alt"></i></div>
-                        <div class="detalhe-titulo">Pressão</div>
-                        <div class="detalhe-valor">${data.pressao} hPa</div>
-                    </div>
-                    <div class="detalhe">
-                        <div class="detalhe-icon"><i class="fas fa-cloud"></i></div>
-                        <div class="detalhe-titulo">Nuvens</div>
-                        <div class="detalhe-valor">${data.nuvens}%</div>
+                        <div class="detalhe-valor">${dados.vento} m/s</div>
                     </div>
                     <div class="detalhe">
                         <div class="detalhe-icon"><i class="fas fa-eye"></i></div>
                         <div class="detalhe-titulo">Visibilidade</div>
-                        <div class="detalhe-valor">${(data.visibilidade / 1000).toFixed(1)} km</div>
+                        <div class="detalhe-valor">${dados.visibilidade !== 'N/A' ? (dados.visibilidade/1000).toFixed(1) + ' km' : 'N/A'}</div>
+                    </div>
+                    <div class="detalhe">
+                        <div class="detalhe-icon"><i class="fas fa-cloud"></i></div>
+                        <div class="detalhe-titulo">Nuvens</div>
+                        <div class="detalhe-valor">${dados.nuvens}%</div>
                     </div>
                     <div class="detalhe">
                         <div class="detalhe-icon"><i class="fas fa-sun"></i></div>
                         <div class="detalhe-titulo">Nascer do Sol</div>
-                        <div class="detalhe-valor">${data.nascer_do_sol}</div>
+                        <div class="detalhe-valor">${dados.nascer_do_sol}</div>
                     </div>
                     <div class="detalhe">
                         <div class="detalhe-icon"><i class="fas fa-moon"></i></div>
                         <div class="detalhe-titulo">Pôr do Sol</div>
-                        <div class="detalhe-valor">${data.por_do_sol}</div>
+                        <div class="detalhe-valor">${dados.por_do_sol}</div>
                     </div>
                 </div>
             </div>`;
 
-        // Adiciona seção de marés se a cidade for litorânea
-        if (data.eh_litoranea && data.mare) {
-            climaHTML += gerarSecaoMare(data.mare);
-        } else if (data.eh_litoranea && !data.mare) {
-            climaHTML += `
-                <div class="mare-section fade-in">
-                   
-                    <div class="info-tip">
-                        <i class="fas fa-info-circle"></i>
-                        Dados de maré não disponíveis para esta localização.
-                        Consulte a aba "Marés" para informações específicas.
-                    </div>
+        if (dados.eh_litoranea && dados.mare) {
+            html += gerarHTMLMare(dados.mare);
+        } else if (dados.eh_litoranea && !dados.mare) {
+            html += `
+                <div class="info-tip">
+                    <i class="fas fa-info-circle"></i>
+                    Esta é uma cidade litorânea, mas não há dados de maré disponíveis para esta localização.
                 </div>`;
         }
 
-        resultadoClimaDiv.innerHTML = climaHTML;
-        resultadoClimaDiv.style.display = 'block';
-        errorClima.classList.remove('active');
+        resultadoClimaDiv.innerHTML = html;
+        resultadoClimaDiv.classList.add('fade-in');
     }
 
-    function gerarSecaoMare(dadosMare) {
+    function gerarHTMLMare(dadosMare) {
         let mareHTML = `
-            <div class="mare-section fade-in">
-               
+            <div class="mare-section">
+                <div class="mare-header">
+                    <i class="fas fa-water"></i>
+                    Informações de Maré - ${dadosMare.local}
+                </div>
                 <div class="mare-grid">`;
 
         // Marés altas
@@ -901,8 +1021,7 @@
             mareHTML += `
                 <div class="mare-card">
                     <div class="mare-card-title">
-                        <i class="fas fa-arrow-up" style="color: var(--success);"></i>
-                        Marés Altas
+                        <i class="fas fa-arrow-up"></i> Marés Altas
                     </div>`;
             dadosMare.mare_alta.forEach(mare => {
                 mareHTML += `
@@ -919,8 +1038,7 @@
             mareHTML += `
                 <div class="mare-card">
                     <div class="mare-card-title">
-                        <i class="fas fa-arrow-down" style="color: var(--warning);"></i>
-                        Marés Baixas
+                        <i class="fas fa-arrow-down"></i> Marés Baixas
                     </div>`;
             dadosMare.mare_baixa.forEach(mare => {
                 mareHTML += `
@@ -1011,11 +1129,264 @@
       }
     });
 
+    // --- LÓGICA DA SEÇÃO TÁBUA MENSAL ---
+    const tabuaForm = document.getElementById('tabua-form');
+    const resultadoTabuaDiv = document.getElementById('resultado-tabua');
+    const loadingTabua = document.getElementById('loading-tabua');
+    const errorTabua = document.getElementById('error-tabua');
+
+    const showLoadingTabua = show => { 
+      loadingTabua.classList.toggle('active', show); 
+      if (show) { 
+        errorTabua.classList.remove('active'); 
+        resultadoTabuaDiv.innerHTML = '';
+      }
+    };
+
+    const showErrorTabua = message => { 
+      errorTabua.textContent = message; 
+      errorTabua.classList.add('active'); 
+      showLoadingTabua(false); 
+    };
+
+    tabuaForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      showLoadingTabua(true);
+      
+      const cidade = document.getElementById('cidade-tabua').value;
+      const mes = document.getElementById('mes-tabua').value;
+      
+      try {
+        const response = await fetch(`/tabua-mensal?cidade=${encodeURIComponent(cidade)}&mes=${mes}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.erro || 'Erro desconhecido');
+        exibirResultadoTabua(data);
+      } catch (error) {
+        showErrorTabua(error.message);
+      } finally {
+        showLoadingTabua(false);
+      }
+    });
+
+    function exibirResultadoTabua(dados) {
+      let html = `
+        <div class="clima-card fade-in">
+          <div class="clima-header">
+            <div class="clima-location">
+              <i class="fas fa-calendar-alt" style="font-size: 2rem; color: var(--primary);"></i>
+              <div>
+                <h2>Tábua de Marés - ${dados.cidade}</h2>
+                <p class="clima-description">${dados.mes_nome} de ${dados.ano}</p>
+              </div>
+            </div>
+            <div class="temperatura-principal">
+              <div style="font-size: 1.5rem; color: var(--primary);">
+                <i class="fas fa-water"></i>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Alerta de Alagamento -->
+          <div class="alerta-container" style="margin-bottom: 1.5rem;">
+            <div class="alerta-card alerta-${dados.alerta.nivel.toLowerCase()}" style="
+              padding: 1rem; 
+              border-radius: 12px; 
+              border-left: 4px solid ${dados.alerta.nivel === 'ALTO' ? 'var(--danger)' : dados.alerta.nivel === 'MÉDIO' ? 'var(--warning)' : 'var(--success)'}; 
+              background: ${dados.alerta.nivel === 'ALTO' ? '#fef2f2' : dados.alerta.nivel === 'MÉDIO' ? '#fffbeb' : '#f0fdf4'};
+            ">
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <i class="fas fa-exclamation-triangle" style="color: ${dados.alerta.nivel === 'ALTO' ? 'var(--danger)' : dados.alerta.nivel === 'MÉDIO' ? 'var(--warning)' : 'var(--success)'}; font-size: 1.5rem;"></i>
+                <div>
+                  <h3 style="margin: 0; color: ${dados.alerta.nivel === 'ALTO' ? 'var(--danger)' : dados.alerta.nivel === 'MÉDIO' ? 'var(--warning)' : 'var(--success)'};">
+                    Risco de Alagamento: ${dados.alerta.nivel}
+                  </h3>
+                  <p style="margin: 0.25rem 0 0 0; color: var(--gray-700);">${dados.alerta.descricao}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gráfico -->
+          <div style="margin-bottom: 1.5rem;">
+            <canvas id="grafico-mares" width="400" height="200"></canvas>
+          </div>
+          
+          <!-- Estatísticas -->
+          <div class="clima-detalhes">
+            <div class="detalhe">
+              <div class="detalhe-icon"><i class="fas fa-arrow-up"></i></div>
+              <div class="detalhe-titulo">Maior Maré Alta</div>
+              <div class="detalhe-valor">${dados.estatisticas.maior_alta}m</div>
+            </div>
+            <div class="detalhe">
+              <div class="detalhe-icon"><i class="fas fa-arrow-down"></i></div>
+              <div class="detalhe-titulo">Menor Maré Baixa</div>
+              <div class="detalhe-valor">${dados.estatisticas.menor_baixa}m</div>
+            </div>
+            <div class="detalhe">
+              <div class="detalhe-icon"><i class="fas fa-chart-line"></i></div>
+              <div class="detalhe-titulo">Amplitude Média</div>
+              <div class="detalhe-valor">${dados.estatisticas.amplitude_media}m</div>
+            </div>
+            <div class="detalhe">
+              <div class="detalhe-icon"><i class="fas fa-calendar-day"></i></div>
+              <div class="detalhe-titulo">Total de Marés</div>
+              <div class="detalhe-valor">${dados.estatisticas.total_mares}</div>
+            </div>
+          </div>
+        </div>`;
+
+      resultadoTabuaDiv.innerHTML = html;
+      
+      // Criar gráfico
+      setTimeout(() => {
+        criarGraficoMares(dados.dados_grafico);
+      }, 100);
+    }
+
+    function criarGraficoMares(dadosGrafico) {
+      const ctx = document.getElementById('grafico-mares').getContext('2d');
+      
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dadosGrafico.labels,
+          datasets: [{
+            label: 'Altura da Maré (m)',
+            data: dadosGrafico.alturas,
+            borderColor: '#145faa',
+            backgroundColor: 'rgba(20, 95, 170, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.4,
+            pointBackgroundColor: dadosGrafico.cores,
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            pointHoverBackgroundColor: dadosGrafico.cores,
+            pointHoverBorderColor: '#ffffff',
+            pointHoverBorderWidth: 3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+              labels: {
+                font: {
+                  size: 14,
+                  weight: 'bold'
+                },
+                color: '#374151'
+              }
+            },
+            tooltip: {
+              mode: 'index',
+              intersect: false,
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              titleColor: '#ffffff',
+              bodyColor: '#ffffff',
+              borderColor: '#145faa',
+              borderWidth: 1,
+              cornerRadius: 8,
+              displayColors: false,
+              callbacks: {
+                label: function(context) {
+                  const tipo = dadosGrafico.cores[context.dataIndex] === '#10b981' ? 'Maré Alta' : 'Maré Baixa';
+                  return `${tipo}: ${context.parsed.y}m`;
+                },
+                title: function(context) {
+                  return `Data: ${context[0].label}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              display: true,
+              title: {
+                display: true,
+                text: 'Data e Hora',
+                font: {
+                  size: 14,
+                  weight: 'bold'
+                },
+                color: '#374151'
+              },
+              ticks: {
+                maxTicksLimit: 10,
+                color: '#6b7280',
+                font: {
+                  size: 11
+                }
+              },
+              grid: {
+                color: 'rgba(107, 114, 128, 0.1)'
+              }
+            },
+            y: {
+              display: true,
+              title: {
+                display: true,
+                text: 'Altura (metros)',
+                font: {
+                  size: 14,
+                  weight: 'bold'
+                },
+                color: '#374151'
+              },
+              beginAtZero: false,
+              ticks: {
+                color: '#6b7280',
+                font: {
+                  size: 12
+                },
+                callback: function(value) {
+                  return value.toFixed(2) + 'm';
+                }
+              },
+              grid: {
+                color: 'rgba(107, 114, 128, 0.1)'
+              }
+            }
+          },
+          interaction: {
+            mode: 'nearest',
+            axis: 'x',
+            intersect: false
+          },
+          elements: {
+            point: {
+              hoverRadius: 8
+            }
+          }
+        }
+      });
+    }
+
     // --- INICIALIZAÇÃO ---
     document.addEventListener('DOMContentLoaded', () => {
+        // Definir data padrão para hoje
         document.getElementById('data').valueAsDate = new Date();
+        
+        // Definir mês padrão para o mês atual
+        const hoje = new Date();
+        const mesAtual = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
+        document.getElementById('mes-tabua').value = mesAtual;
+        
+        // Carregar clima padrão
         fetchClima(`/clima?cidade=Recife`);
+        
+        // Inicializar mapa principal
+        initMap();
     });
+  </script>
+</body>
+</html>   });
   </script>
 </body>
 </html>
