@@ -1,175 +1,169 @@
-# CliMar - Sistema de Clima e Marés 🌊
+# CliMar - Aplicativo de Clima e Marés
 
-Aplicação web para consulta de informações meteorológicas e oceanográficas em tempo real, com nova funcionalidade de **Tábua de Marés** e **Sistema de Alertas de Alagamento**.
+## Resumo das Alterações Implementadas
 
-## 🆕 Novas Funcionalidades
+## Como Executar o Aplicativo
 
-### 📊 Tábua de Marés Mensal
-- **Seleção Intuitiva**: Escolha o porto e mês de 2025 através de dropdowns
-- **Gráfico Interativo**: Visualização das variações de maré ao longo do mês
-- **Dados Detalhados**: Tabela com horários e alturas das marés mais altas e baixas de cada dia
-- **56 Portos Disponíveis**: Cobertura completa do litoral brasileiro
+### Pré-requisitos
+- Python 3.11+
+- Flask
+- Requests
+- Outras dependências listadas no código
 
-### ⚠️ Sistema de Alertas de Alagamento
-- **Análise Inteligente**: Combina dados meteorológicos e de marés
-- **3 Níveis de Risco**: Baixo, Moderado e Alto
-- **Critérios Técnicos**:
-  - Umidade > 80% + Nuvens > 70%
-  - Pressão atmosférica < 1000 hPa
-  - Marés altas > 4.0m
-  - Previsão de chuva > 20mm/24h
-- **Recomendações**: Orientações específicas para cada nível de risco
+### Passos para Execução
 
-## 🚀 Como Atualizar Seu Projeto
+1. **Navegue até o diretório do projeto:**
+   ```bash
+   cd weather-cloud
+   ```
 
-### Arquivos para Substituir:
-1. **`app.py`** → Substitua o arquivo raiz do seu projeto
-2. **`templates/index.html`** → Substitua o arquivo na pasta templates
+2. **Execute o aplicativo Flask:**
+   ```bash
+   python app.py
+   ```
 
-### Arquivos que Permanecem Iguais:
-- `banco_mareas.json` ✅
-- `.env` ✅  
-- `requirements.txt` ✅
-- `static/image1(1).png` ✅
+3. **Acesse no navegador:**
+   ```
+   http://localhost:5000/
+   ```
 
-## 📋 Instalação e Execução
+### Funcionalidades Disponíveis
 
-### 1. Instalar Dependências
-```bash
-pip install -r requirements.txt
+#### Aba Clima
+- Busca por cidade ou clique no mapa
+- Exibição de dados meteorológicos completos
+- Dados de maré para cidades litorâneas
+- **NOVO:** Alertas de alagamento baseados em análise de risco
+
+#### Aba Marés
+- Consulta específica de marés por porto e data
+- Interface de pergunta em linguagem natural
+- Visualização de marés altas e baixas por dia
+
+#### Aba Tábua por Mês (NOVA)
+- Busca por cidade ou clique no mapa
+- Gráfico interativo com dados mensais de maré usando Chart.js
+- Exibição de dados de maré alta e baixa por mês
+- Interface responsiva e intuitiva
+- Mapa funcional com clique para seleção de localização
+- Campo de digitação para busca por cidade
+
+
+### Sistema de Alertas de Alagamento
+- ✅ Análise cruzada de dados climáticos e de maré
+- ✅ Três níveis de alerta: Baixo, Médio e Alto
+- ✅ Exibição visual dos alertas na aba "Clima"
+- ✅ Critérios baseados em chuva, maré alta crítica e combinação de fatores
+
+
+## Detalhes Técnicos das Implementações
+
+### Backend (app.py)
+- **Nova rota `/tabua_mes`:** Processa dados de maré mensais
+- **Nova rota `/alertas_alagamento`:** Analisa risco de alagamento
+- **Função `analisar_risco_alagamento`:** Cruza dados climáticos e de maré
+
+### Frontend (templates/index.html)
+- **Páginas:** Interface completa para tábua mensal
+- **Gráfico Chart.js:** Visualização interativa de dados
+- **Sistema de alertas:** Exibição visual com cores e ícones
+
+
+### Critérios de Alerta de Alagamento
+
+#### Risco Baixo
+- Condições climáticas e de maré favoráveis
+- Sem chuva significativa e maré normal
+
+#### Risco Médio
+- Presença de chuva OU maré alta crítica (>3.0m)
+- Possibilidade de alagamentos localizados
+
+#### Risco Alto
+- Combinação de chuva intensa E maré alta crítica
+- Alto potencial para alagamentos severos
+
+## Estrutura dos Dados
+
+### Resposta da API `/tabua_mes`
+```json
+{
+  "cidade": "Nome da Cidade",
+  "pais": "BR",
+  "latitude": -3.7319,
+  "longitude": -38.5267,
+  "mes_extenso": "Junho",
+  "ano": 2025,
+  "mares_mensais": [
+    {
+      "dia": 1,
+      "altura_max_alta": 2.5,
+      "altura_min_baixa": 0.3
+    }
+  ]
+}
 ```
 
-### 2. Configurar Variáveis de Ambiente
-Certifique-se que o arquivo `.env` contém:
-```
-OPENWEATHER_API_KEY=sua_chave_aqui
-```
-
-### 3. Executar Aplicação
-```bash
-python app.py
-```
-
-### 4. Acessar no Navegador
-```
-http://localhost:5000
+### Resposta da API `/alertas_alagamento`
+```json
+{
+  "nivel": "baixo|medio|alto",
+  "alertas": [
+    "Mensagem de alerta específica"
+  ]
+}
 ```
 
-## 🎯 Como Usar as Novas Funcionalidades
+## Observações Importantes
 
-### Tábua de Marés:
-1. Clique na aba **"Marés"**
-2. Selecione um **porto** no dropdown
-3. Escolha um **mês de 2025**
-4. Clique em **"Gerar Tábua de Marés"**
-5. Visualize o gráfico e dados detalhados
+1. **API Key:** Certifique-se de que a variável `API_KEY` está configurada com uma chave válida da OpenWeatherMap
+2. **Dados de Maré:** O sistema utiliza o arquivo `banco_mareas.json` para dados de referência
+3. **Responsividade:** A interface é totalmente responsiva e funciona em dispositivos móveis
+4. **Performance:** Os mapas são carregados de forma independente para evitar conflitos
 
-### Alertas de Alagamento:
-- **Na aba Clima**: Aparecem automaticamente ao buscar cidades litorâneas
-- **Na aba Marés**: Exibidos ao selecionar um porto específico
+## Melhorias Futuras Sugeridas
 
-## 🏗️ Estrutura do Projeto
+- Integração com APIs de maré em tempo real
+- Histórico de alertas de alagamento
+- Notificações push para alertas críticos
+- Exportação de dados em PDF/CSV
+- Previsões de maré estendidas
 
-```
-seu_projeto/
-├── app.py               
-├── templates/
-│   └── index.html       
-├── static/
-│   └── image1(1).png     
-├── banco_mareas.json    
-├── .env                  
-├── requirements.txt      
-└── README.md            # 📖 Este arquivo
-```
 
-## 🔧 Tecnologias Utilizadas
 
-- **Backend**: Flask, Python 3.11
-- **Frontend**: HTML5, CSS3, JavaScript ES6+
-- **Gráficos**: Chart.js
-- **Mapas**: Leaflet.js
-- **APIs**: OpenWeatherMap
-- **Dados**: JSON estruturado (56 portos brasileiros)
+## 5. Tecnologias e Infraestrutura
 
-## 📡 Novas APIs Disponíveis
+A aplicação CliMar é construída com um conjunto de tecnologias modernas e é implantada em uma infraestrutura de nuvem robusta para garantir desempenho e escalabilidade.
 
-### 1. Lista de Portos
-```http
-GET /portos_disponiveis
-```
-Retorna todos os portos disponíveis para seleção.
+### 5.1. Tecnologias Principais
 
-### 2. Tábua de Marés
-```http
-GET /tabua_mares?porto=recife&mes=1
-```
-Gera tábua de marés para porto específico em determinado mês.
+- **Backend:** Python 3 com Flask (microframework web).
+- **Frontend:** HTML5, CSS3, JavaScript, Leaflet.js (mapas interativos), Chart.js (gráficos).
+- **Banco de Dados (simplificado):** Arquivo JSON (`banco_mareas.json`) para dados de maré estáticos.
 
-### 3. Alertas de Alagamento
-```http
-GET /alertas_alagamento?cidade=Recife
-# ou
-GET /alertas_alagamento?lat=-8.03&lon=-34.52
-```
-Analisa risco de alagamento baseado em dados meteorológicos e de marés.
+### 5.2. Infraestrutura de Nuvem
 
-## 🌊 Portos Disponíveis
+A aplicação está hospedada na plataforma **Railway**, que oferece um ambiente de implantação contínua e escalável. Para gerenciamento de dados em memória e potencial cache, é utilizado o **Redis**.
 
-A aplicação suporta **56 portos** distribuídos por todo o litoral brasileiro:
+- **Railway:** Plataforma de desenvolvimento e implantação que simplifica o processo de colocar aplicações em produção, oferecendo implantação contínua, ambientes isolados e escalabilidade.
+- **Redis:** Armazenamento de estrutura de dados em memória, utilizado para cache de dados e outras operações que exigem alta velocidade.
 
-- **Norte**: Amapá (3), Pará (6)
-- **Nordeste**: Maranhão (4), Piauí (1), Ceará (2), RN (4), Paraíba (1), Pernambuco (2), Alagoas (1), Sergipe (2), Bahia (4)
-- **Sudeste**: Espírito Santo (4), Rio de Janeiro (6), São Paulo (2)
-- **Sul**: Paraná (4), Santa Catarina (4), Rio Grande do Sul (1)
-- **Especial**: Antártica (1)
+## 6. Testes e Integração Contínua (CI/CD)
 
-## 📊 Dados das Marés
+A qualidade do código e a agilidade na entrega são garantidas através de testes automatizados e um pipeline de Integração Contínua/Entrega Contínua (CI/CD) configurado no Git.
 
-- **Fonte**: Dados oficiais brasileiros para 2025
-- **Cobertura**: 365 dias do ano
-- **Precisão**: Horários e alturas exatas
-- **Formato**: JSON estruturado
-- **Sem dados simulados**: 100% dados reais
+### 6.1. Testes Automatizados
 
-## 🎨 Interface
+- **Pytest:** Framework de testes para Python, utilizado para testes unitários e de integração do backend.
+- **Bandit:** Ferramenta de segurança estática para Python, utilizada para identificar vulnerabilidades no código-fonte.
 
-- **Design Responsivo**: Funciona em desktop e mobile
-- **Tema Moderno**: Gradientes e animações suaves
-- **Acessibilidade**: Cores contrastantes e navegação intuitiva
-- **Performance**: Carregamento rápido e interações fluidas
+### 6.2. CI/CD no Git
 
-## 🔍 Funcionalidades Existentes (Mantidas)
+O workflow de CI/CD (provavelmente configurado via GitHub Actions, dado o repositório) automatiza as seguintes etapas:
 
-- ✅ Consulta de clima por cidade
-- ✅ Mapa interativo com clique
-- ✅ Dados meteorológicos completos
-- ✅ Informações de marés para cidades litorâneas
-- ✅ Interface responsiva
+- **Build:** Preparação do ambiente de execução.
+- **Testes:** Execução automática dos testes Pytest e Bandit a cada push ou pull request.
+- **Deploy:** Implantação automática da aplicação no Railway após a aprovação dos testes.
 
-## 🆘 Suporte
 
-Se encontrar algum problema:
-
-1. Verifique se todos os arquivos estão no lugar correto
-2. Confirme que a API key do OpenWeatherMap está configurada
-3. Certifique-se que as dependências estão instaladas
-4. Verifique se o arquivo `banco_mareas.json` está presente
-
-## 📝 Changelog
-
-### Versão 2.0 (Nova)
-- ➕ Tábua de marés mensal com gráfico interativo
-- ➕ Sistema de alertas de alagamento
-- ➕ Seleção de portos por dropdown
-- ➕ 3 novas APIs REST
-- ➕ Interface modernizada
-- ➕ Análise de risco meteorológico
-
-### Versão 1.0 (Original)
-- ✅ Consulta de clima
-- ✅ Mapa interativo
-- ✅ Dados de marés básicos
-
----
 
