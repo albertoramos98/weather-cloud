@@ -1,0 +1,201 @@
+# DOCUMENTAÇÃO TÉCNICA
+
+## APLICAÇÃO CLIMAR
+
+### Autores: Júlia Albertim e Alberto Ramos
+### Data: 18 de junho de 2025
+
+---
+
+## 1 INTRODUÇÃO
+
+A aplicação CliMar é uma ferramenta web desenvolvida para fornecer informações meteorológicas e oceanográficas em tempo real com projeções de 
+ novas implementações. 
+
+Este documento técnico detalha a arquitetura da aplicação, as tecnologias empregadas no *frontend* e *backend*, a estrutura do banco de dados, 
+ a integração com serviços de nuvem e as fontes de dados externas. 
+
+O objetivo é proporcionar uma compreensão aprofundada do funcionamento interno
+ da aplicação, facilitando futuras manutenções, desenvolvimentos e escalabilidade.
+
+## 2 ARQUITETURA DA APLICAÇÃO
+
+A arquitetura do CliMar adota um modelo cliente-servidor, no qual o *frontend* (cliente) interage com o *backend* (servidor) para requisitar
+ e exibir dados. 
+ 
+O *backend* é responsável por processar as requisições, interagir com fontes de dados externas e o banco de dados, e retornar as informações
+ formatadas para o *frontend*. A comunicação entre o *frontend* e o *backend* é realizada por meio de interfaces de programação de aplicação
+ (*APIs*) do tipo RESTful.
+
+### 2.1 COMPONENTES PRINCIPAIS
+
+- **Frontend:** Interface do usuário, desenvolvida com HTML, CSS e JavaScript, responsável pela apresentação dos dados e interação com o usuário.
+- **Backend:** Lógica de negócios da aplicação, responsável por gerenciar as requisições, processar os dados e interagir com serviços externos. Desenvolvido em Python com o *framework* Flask.
+- **Banco de Dados:** Armazenamento de dados estáticos e dinâmicos, como informações de marés e configurações.
+- **Serviços Externos/APIs:** Fontes de dados meteorológicos e oceanográficos de terceiros.
+- **Infraestrutura de Nuvem:** Ambiente de hospedagem e gerenciamento da aplicação.
+
+## 3 DETALHES DO FRONTEND
+
+O *frontend* do CliMar é construído com tecnologias web padrão, visando compatibilidade e acessibilidade. A interface é responsiva, adaptando-se a diversos 
+ tamanhos de tela, desde computadores de mesa até dispositivos móveis.
+
+### 3.1 TECNOLOGIAS UTILIZADAS
+
+- **HTML5:** Estrutura semântica da página.
+- **CSS3:** Estilização e *layout* da interface, incluindo *media queries* para responsividade.
+- **JavaScript (ES6+):** Lógica interativa do lado do cliente, manipulação do DOM, requisições assíncronas (*Fetch API*) e integração com bibliotecas.
+- **Leaflet.js:** Biblioteca JavaScript de código aberto para mapas interativos. Empregada para exibir a localização das cidades e permitir a interação do usuário 
+ com o mapa.
+- **Chart.js:** Biblioteca JavaScript para criação de gráficos. Utilizada para visualizar os dados de maré mensal de forma clara e interativa.
+- **Font Awesome:** Biblioteca de ícones para enriquecer a interface do usuário.
+
+### 3.2 ESTRUTURA DE ARQUIVOS DO FRONTEND
+
+- `templates/index.html`: O arquivo principal do *frontend*, contendo a estrutura HTML das abas (Clima, Marés, Tábua por Mês), os formulários de busca, os contêineres 
+ para exibição dos resultados e a inclusão dos *scripts* JavaScript e folhas de estilo CSS.
+- `templates/login.html`: O arquivo HTML responsável pela interface da página de login.
+- `static/`: Diretório para arquivos estáticos como imagens e possivelmente CSS e JS customizados.
+
+### 3.3 FUNCIONALIDADES INTERATIVAS
+
+- **Página de Login:** Permite que os usuários acessem a aplicação mediante autenticação. A interface inclui campos para nome de usuário e senha, e um botão para 
+ submissão. A lógica de autenticação é processada no *backend*.
+- **Navegação por Abas:** A função `showTab()` gerencia a exibição das diferentes seções da aplicação (Clima, Marés, Tábua por Mês), alternando a visibilidade dos 
+ elementos HTML correspondentes.
+- **Busca de Localização:** Formulários de entrada de texto permitem que o usuário digite o nome de uma cidade para buscar informações. A submissão do formulário 
+ dispara uma requisição assíncrona para o *backend*.
+- **Interação com o Mapa:** O mapa Leaflet.js permite que o usuário clique em uma localização para obter informações de clima ou maré, enviando as coordenadas de 
+ latitude e longitude para o *backend*.
+- **Exibição de Dados:** Os dados recebidos do *backend* são dinamicamente inseridos no DOM, atualizando a interface do usuário com as informações de clima, maré 
+ e alertas.
+- **Gráficos de Maré:** A biblioteca Chart.js é utilizada para renderizar gráficos de linha que visualizam as alturas das marés ao longo do mês na aba "Tábua por Mês".
+- **Alertas Visuais:** O sistema de alertas de alagamento exibe mensagens e ícones coloridos para indicar o nível de risco (Baixo, Médio, Alto) diretamente na aba de 
+clima.
+
+## 4 DETALHES DO BACKEND
+
+O *backend* do CliMar é construído em Python utilizando o microframework Flask, reconhecido por sua leveza e flexibilidade. Ele atua como a ponte entre o *frontend*
+ e as fontes de dados, processando as requisições e fornecendo as respostas apropriadas.
+
+### 4.1 TECNOLOGIAS UTILIZADAS
+
+- **Python 3:** Linguagem de programação principal.
+- **Flask:** Microframework web para o desenvolvimento das *APIs* RESTful.
+- **Requests:** Biblioteca HTTP para realizar requisições a *APIs* externas (OpenWeatherMap, World Weather Online).
+- **JSON:** Formato de intercâmbio de dados para comunicação entre *frontend* e *backend*, e para armazenamento de dados estáticos.
+- **Datetime:** Módulo para manipulação de datas e horas, essencial para o processamento de dados de maré e clima.
+
+### 4.2 ESTRUTURA DE ARQUIVOS DO BACKEND
+
+- `app.py`: O arquivo principal do *backend*, contendo as definições das rotas, a lógica de processamento das requisições, a integração com as *APIs* externas e 
+ a manipulação dos dados.
+- `banco_mareas.json`: Arquivo JSON que armazena dados estáticos de marés, servindo como uma base de dados local para a aplicação.
+
+### 4.3 ROTAS DA API (*ENDPOINTS*)
+
+- `/`: Rota principal que renderiza o `index.html`.
+- `/login`: Rota para a página de login, que renderiza o `login.html` e processa as credenciais de autenticação.
+- `/clima`: Rota para obter dados meteorológicos de uma cidade ou coordenadas geográficas. Integra-se com a *API* OpenWeatherMap.
+- `/mare`: Rota para obter dados de maré de uma cidade ou coordenadas geográficas. Utiliza dados do `banco_mareas.json` e pode ser estendida para integrar com 
+ *APIs* de maré externas.
+- `/tabua_mes`: Nova rota para obter dados de maré mensal para uma cidade ou coordenadas. Processa os dados do `banco_mareas.json` para gerar um resumo mensal.
+- `/alertas_alagamento`: Nova rota para analisar o risco de alagamento com base em dados de clima e maré. Retorna um nível de risco (Baixo, Médio, Alto) e mensagens
+  explicativas.
+
+### 4.4 LÓGICA DE NEGÓCIOS
+
+- **Autenticação de Usuários:** A rota `/login` no *backend* é responsável por validar as credenciais fornecidas pelo usuário. Em uma implementação completa, esta 
+ lógica se conectaria a um banco de dados de usuários para verificar a autenticidade.
+- **Processamento de Requisições:** O *backend* recebe requisições GET e POST do *frontend*, extrai os parâmetros (cidade, latitude, longitude, data, credenciais, etc.) 
+ e os utiliza para buscar as informações necessárias.
+- **Integração com APIs Externas:** Funções específicas são responsáveis por realizar chamadas HTTP para *APIs* de clima (OpenWeatherMap) e, potencialmente, *APIs* 
+ de maré externas, tratando as respostas e extraindo os dados relevantes.
+- **Manipulação de Dados de Maré:** A lógica para a aba "Tábua por Mês" envolve a leitura e o processamento do `banco_mareas.json` para agregar os dados de maré por dia
+  e calcular as alturas máximas e mínimas para o gráfico mensal.
+- **Análise de Risco de Alagamento:** A função `analisar_risco_alagamento` é o cerne do sistema de alertas. Ela compara a previsão de chuva com as alturas das marés 
+ (especialmente marés altas críticas) para determinar o nível de risco de alagamento, considerando limiares predefinidos.
+
+## 5 BANCO DE DADOS
+
+Atualmente, a aplicação emprega um arquivo JSON (`banco_mareas.json`) como uma forma simplificada de banco de dados para armazenar informações de marés. 
+ Este arquivo contém dados estruturados por cidade, com previsões de maré para diferentes datas e horários.
+
+### 5.1 ESTRUTURA DO `BANCO_MAREAS.JSON`
+
+O arquivo JSON é um *array* de objetos, onde cada objeto representa uma entrada de dados de maré para uma cidade específica. Cada entrada inclui:
+
+- `cidade`: Nome da cidade.
+- `latitude`, `longitude`: Coordenadas geográficas da cidade.
+- `mares`: Um *array* de objetos, onde cada objeto representa um dia e contém:
+    - `data`: Data da previsão.
+    - `eventos`: Um *array* de objetos, cada um descrevendo um evento de maré (alta ou baixa), com `hora` e `altura_m`.
+
+### 5.2 CONSIDERAÇÕES FUTURAS
+
+Para aplicações de maior escala ou com requisitos de dados mais complexos, a migração para um banco de dados NoSQL (como MongoDB). Isso permitiria:
+
+- **Melhor Gerenciamento de Dados:** Consultas mais eficientes, indexação e relacionamentos entre dados, agregamentos, etc.
+- **Escalabilidade:** Suporte a um volume maior de dados e usuários.
+- **Persistência Robusta:** Mecanismos de *backup*, recuperação e transações.
+
+## 6 INFRAESTRUTURA DE NUVEM
+
+A aplicação CliMar está hospedada na plataforma Railway. Esta configuração oferece um ambiente de desenvolvimento e produção eficiente e escalável.
+
+### 6.1 RAILWAY
+
+Railway é uma plataforma de desenvolvimento e implantação que simplifica o processo de colocar aplicações em produção. Ela oferece:
+
+- **Implantação Contínua:** Integração com repositórios Git para implantação automática a cada *push*.
+- **Ambientes Isolados:** Cada projeto ou serviço é executado em um contêiner isolado, garantindo consistência e evitando conflitos.
+- **Escalabilidade:** Capacidade de escalar recursos (CPU, RAM) conforme a demanda da aplicação.
+- **Gerenciamento de Variáveis de Ambiente:** Facilita a configuração de chaves de *API* e outras variáveis sensíveis.
+- **Domínios Personalizados:** Suporte para configurar domínios próprios para a aplicação.
+
+## 7 FONTES DE DADOS EXTERNAS
+
+A aplicação CliMar depende de fontes de dados externas para obter informações em tempo real.
+
+### 7.1 OPENWEATHERMAP API
+
+- **Propósito:** Fornecer dados meteorológicos atuais e previsões.
+- **Dados Obtidos:** Temperatura, umidade, velocidade do vento, descrição do tempo, ícones meteorológicos, etc.
+- **Uso no CliMar:** A rota `/clima` no *backend* realiza requisições para esta *API*, utilizando o nome da cidade ou coordenadas geográficas para obter os 
+ dados climáticos.
+
+
+## 9 TESTES E INTEGRAÇÃO CONTÍNUA
+
+A aplicação CliMar incorpora práticas de desenvolvimento moderno, incluindo testes automatizados e integração contínua (CI/CD), para garantir a qualidade do
+ código e a agilidade na entrega de novas funcionalidades.
+
+### 9.1 TESTES AUTOMATIZADOS
+
+- **Pytest:** *Framework* de testes para Python, utilizado para escrever e executar testes unitários e de integração para o *backend* da aplicação. Isso garante que as funções e rotas da *API* funcionem conforme o esperado e que as alterações no código não introduzam regressões.
+- **Bandit:** Ferramenta de segurança estática para Python, utilizada para identificar vulnerabilidades comuns no código-fonte. A execução do Bandit no *pipeline* de CI/CD ajuda a garantir que o código seja seguro desde as fases iniciais do desenvolvimento.
+
+### 9.2 INTEGRAÇÃO CONTÍNUA (CI/CD)
+
+O *workflow* de CI/CD automatiza as seguintes etapas:
+
+- **Build:** Compilação do código e preparação do ambiente de execução.
+- **Testes:** Execução automática dos testes Pytest e Bandit a cada *push* ou *pull request*, garantindo que apenas código testado e seguro seja integrado.
+- **Deploy:** Implantação automática da aplicação no Railway após a aprovação dos testes e a fusão do código na *branch* principal. Isso agiliza o processo de 
+ entrega e reduz a chance de erros manuais.
+
+## 10 PRÓXIMOS PASSOS E MELHORIAS FUTURAS
+
+- **Pág de login: Melhoria da pág de login e permissão de criar usuários.
+- **Parâmetros: Ajustar parâmetros para cálculos mais assertivos.
+- **Otimização do Banco de Dados:** Migrar de `banco_mareas.json` para um banco de dados mais robusto para melhor gerenciamento e escalabilidade dos dados de maré.
+- **Autenticação de Usuários:** Aprimorar o sistema de autenticação para funcionalidades personalizadas, como salvar locais favoritos ou preferências, e implementa  
+ gerenciamento de sessões.
+- **Notificações:** Adicionar um sistema de notificações (*e-mail*, *push*) para alertas de alagamento.
+- **Testes Automatizados:** Desenvolver testes unitários e de integração para garantir a qualidade e a estabilidade do código.
+- **Monitoramento e Logging:** Implementar ferramentas de monitoramento e *logging* para acompanhar o desempenho da aplicação e identificar problemas proativamente.
+- **Novas funcionalidades: introduzir mais funções na aplicação, monitoramento mais abrangente.
+
+---
+
+
